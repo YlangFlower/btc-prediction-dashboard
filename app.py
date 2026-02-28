@@ -728,7 +728,7 @@ with tab_report:
             fr = _rq.get(file_url, timeout=15)
             if not fr.ok:
                 return None, f"파일 다운로드 실패 {fr.status_code}: {file_url}"
-            return fr.text, fname
+            return fr.content.decode('utf-8'), fname
         except Exception as e:
             return None, f"Exception: {e}"
 
