@@ -128,8 +128,24 @@ data = fetch_all_data()
 
 # --- 마켓/예측 리포트 로더 (캐시 5분) ---
 @st.cache_data(ttl=300)
+def _load_text_from_storage(prefix: str):
+    """Supabase Storage 'charts' 버킷에서 prefix에 맞는 최신 텍스트 파일 읽기"""
+    try:
+        if supabase:
+            files = supabase.storage.from_(CHARTS_BUCKET).list()
+            if files:
+                matching = [f for f in files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
+                if matching:
+                    latest = sorted(matching, key=lambda x: x['name'])[-1]
+                    raw = supabase.storage.from_(CHARTS_BUCKET).download(latest['name'])
+                    return raw.decode('utf-8'), latest['name']
+    except Exception as e:
+        print(f"Storage text read error ({prefix}): {e}")
+    return None, None
+
+@st.cache_data(ttl=300)
 def load_market_report():
-    """Supabase market_reports 테이블 우선, 없으면 로컬 파일 폴백"""
+    # 1. Supabase table
     try:
         if supabase:
             res = supabase.table('market_reports').select('content,filename').order('created_at', desc=True).limit(1).execute()
@@ -137,25 +153,23 @@ def load_market_report():
                 return res.data[0]['content'], res.data[0].get('filename', 'market_report.txt')
     except Exception:
         pass
-    # 로컬 파일 폴백 (개발 환경)
-    report_dirs = [
-        r"c:\25WinterProject",
-        r"c:\25WinterProject\models\production\v7E_production",
-        r"c:\25WinterProject\models\production\v7E_production_highAccuracy_dynH"
-    ]
-    files = []
-    for d in report_dirs:
+    # 2. Supabase Storage
+    content, fname = _load_text_from_storage('market_analysis_report_')
+    if content:
+        return content, fname
+    # 3. 로컬 파일 폴백
+    for d in [r"c:\25WinterProject", r"c:\25WinterProject\models\production\v7E_production"]:
         if os.path.exists(d):
-            files.extend(glob.glob(os.path.join(d, "market_analysis_report_*.txt")))
-    if not files:
-        return None, None
-    latest = sorted(files)[-1]
-    with open(latest, "r", encoding="utf-8") as f:
-        return f.read(), os.path.basename(latest)
+            files = glob.glob(os.path.join(d, "market_analysis_report_*.txt"))
+            if files:
+                latest = sorted(files)[-1]
+                with open(latest, "r", encoding="utf-8") as f:
+                    return f.read(), os.path.basename(latest)
+    return None, None
 
 @st.cache_data(ttl=300)
 def load_daily_report():
-    """Supabase reports 테이블 우선, 없으면 로컬 파일 폴백"""
+    # 1. Supabase table
     try:
         if supabase:
             res = supabase.table('reports').select('content,filename').order('created_at', desc=True).limit(1).execute()
@@ -163,21 +177,19 @@ def load_daily_report():
                 return res.data[0]['content'], res.data[0].get('filename', 'prediction_report.txt')
     except Exception:
         pass
-    # 로컬 파일 폴백 (개발 환경)
-    report_dirs = [
-        r"c:\25WinterProject",
-        r"c:\25WinterProject\models\production\v7E_production",
-        r"c:\25WinterProject\models\production\v7E_production_highAccuracy_dynH"
-    ]
-    files = []
-    for d in report_dirs:
+    # 2. Supabase Storage
+    content, fname = _load_text_from_storage('prediction_report_')
+    if content:
+        return content, fname
+    # 3. 로컬 파일 폴백
+    for d in [r"c:\25WinterProject", r"c:\25WinterProject\models\production\v7E_production"]:
         if os.path.exists(d):
-            files.extend(glob.glob(os.path.join(d, "prediction_report_*.txt")))
-    if not files:
-        return None, None
-    latest = sorted(files)[-1]
-    with open(latest, "r", encoding="utf-8") as f:
-        return f.read(), os.path.basename(latest)
+            files = glob.glob(os.path.join(d, "prediction_report_*.txt"))
+            if files:
+                latest = sorted(files)[-1]
+                with open(latest, "r", encoding="utf-8") as f:
+                    return f.read(), os.path.basename(latest)
+    return None, None
 
 # --- 예측 이미지 탐색 함수 (Supabase Storage 우선, 로컬 폴백) ---
 @st.cache_data(ttl=3600)
@@ -554,55 +566,112 @@ with tab_news:
         st.write("최근 뉴스 감성 데이터가 존재하지 않습니다.")
 
 # ==============================================================================
-# 탭 3: 퀀트 모델 차트
+# 탭 3: 퀀트 모델 차트 (리디자인)
 # ==============================================================================
 with tab_charts:
     st.markdown("### 🔬 퀀트 모델 검증 및 차트 브리핑")
-    st.markdown("백업 폴더에 저장된 예측 성과 차트 및 오프라인 분석 그래픽 결과물을 확인합니다.")
+    st.markdown("""
+    <p style='color: #8b949e; font-size: 0.95rem; margin-bottom: 1.5rem;'>
+    AI 파이프라인이 매일 자동 생성하는 분석 차트입니다. 각 그래프는 모델 예측 근거 및 성과 검증에 사용됩니다.
+    </p>
+    """, unsafe_allow_html=True)
 
-    file_cols = st.columns(2)
-
-    img_paths = [
-        "chart_price_v7e.png",
-        "chart_models_v7e.png",
-        "chart_band_v7e.png",
-        "logistic_analysis_v7e.png",
-        "backtest_v7e.png",
-        "feature_importance_per_model.png"
+    # 차트 메타데이터 (이름 → 제목, 설명, 배지색)
+    CHART_META = [
+        {
+            "name": "chart_price_v7e.png",
+            "title": "📈 가격 추이 & 24H AI 예측",
+            "badge": "Price Forecast",
+            "badge_color": "rgba(34,197,94,0.15)",
+            "badge_text": "#4ade80",
+            "border": "rgba(34,197,94,0.4)",
+            "desc": "최근 7일간 BTC 가격 흐름과 AI가 예측한 24시간 후 목표가 범위. 초록 음영은 AI 예측 상승 구간(±1σ)입니다."
+        },
+        {
+            "name": "chart_models_v7e.png",
+            "title": "🤖 AI 모델별 예측 현황",
+            "badge": "Ensemble",
+            "badge_color": "rgba(249,115,22,0.15)",
+            "badge_text": "#f97316",
+            "border": "rgba(249,115,22,0.4)",
+            "desc": "PatchTST(트랜스포머) · CNN-LSTM(딥러닝) · CatBoost(기술적) 3개 모델의 개별 확률과 최종 앙상블 결과 비교."
+        },
+        {
+            "name": "chart_band_v7e.png",
+            "title": "📊 신뢰구간 예측 밴드",
+            "badge": "95% CI Band",
+            "badge_color": "rgba(59,130,246,0.15)",
+            "badge_text": "#60a5fa",
+            "border": "rgba(59,130,246,0.4)",
+            "desc": "Monte Carlo 시뮬레이션으로 계산한 95%/68% 신뢰구간. 음영 폭이 넓을수록 예측 불확실성이 높습니다."
+        },
+        {
+            "name": "backtest_v7e.png",
+            "title": "💹 백테스트 수익률 검증",
+            "badge": "Backtest",
+            "badge_color": "rgba(168,85,247,0.15)",
+            "badge_text": "#c084fc",
+            "border": "rgba(168,85,247,0.4)",
+            "desc": "v7E 모델로 과거를 재현한 Long/Short 전략의 누적 수익률. BTC 단순 보유(Buy & Hold) 대비 AI 전략 성과 비교."
+        },
     ]
 
     search_dirs = [
         "c:\\25WinterProject",
         "c:\\25WinterProject\\insta_image",
-        "c:\\25WinterProject\\models",
-        "c:\\25WinterProject\\models\\production",
         "c:\\25WinterProject\\models\\production\\v7E_production_highAccuracy_dynH"
     ]
 
-    found_imgs = []
-    found_urls = []
-    # Supabase Storage 우선
-    for img_name in img_paths:
-        url = get_chart_url(img_name)
+    def resolve_chart(name):
+        # Supabase Storage 우선
+        url = get_chart_url(name)
         if url:
-            found_urls.append((url, img_name))
-    # 로컬 파일 폴백
-    if not found_urls:
+            return url
+        # 로컬 폴백
         for d in search_dirs:
-            for img_name in img_paths:
-                full_path = os.path.join(d, img_name)
-                if os.path.exists(full_path):
-                    if not any(name == img_name for _, name in found_imgs):
-                        found_imgs.append((full_path, img_name))
+            p = os.path.join(d, name)
+            if os.path.exists(p):
+                return p
+        return None
 
-    if found_imgs or found_urls:
-        items = found_imgs + found_urls
-        for i, (path_or_url, name) in enumerate(items):
-            with file_cols[i % 2]:
-                with st.container(border=True):
-                    st.image(path_or_url, caption=name, use_container_width=True)
-    else:
-        st.info("현재 분석 이미지가 없습니다. Supabase Storage `charts` 버킷에 업로드하거나 파이프라인을 실행하면 생성됩니다.")
+    # 2열 그리드 렌더링
+    col_left, col_right = st.columns(2, gap="medium")
+    cols = [col_left, col_right]
+
+    any_found = False
+    for i, meta in enumerate(CHART_META):
+        src = resolve_chart(meta["name"])
+        if not src:
+            continue
+        any_found = True
+        with cols[i % 2]:
+            st.markdown(f"""
+            <div style="
+                border: 1px solid {meta['border']};
+                border-radius: 16px;
+                padding: 1.25rem 1.25rem 0.75rem;
+                margin-bottom: 1.25rem;
+                background: rgba(22,27,34,0.6);
+                backdrop-filter: blur(8px);
+            ">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.5rem;">
+                    <span style="font-size:1.1rem; font-weight:700; color:#e2e8f0;">{meta['title']}</span>
+                    <span style="
+                        background:{meta['badge_color']};
+                        color:{meta['badge_text']};
+                        border:1px solid {meta['border']};
+                        font-size:11px; font-weight:700;
+                        padding:2px 10px; border-radius:99px;
+                    ">{meta['badge']}</span>
+                </div>
+                <p style="color:#94a3b8; font-size:0.82rem; margin:0 0 0.75rem 0; line-height:1.5;">{meta['desc']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.image(src, use_container_width=True)
+            st.markdown("<div style='margin-bottom:0.5rem'></div>", unsafe_allow_html=True)
+
+    if not any_found:
+        st.info("차트 이미지가 없습니다. Supabase Storage `charts` 버킷에 업로드하거나 파이프라인을 실행하면 자동 생성됩니다.")
 
 # ==============================================================================
 # 탭 4: 일간/주간 마켓 리포트 (⑤⑥ 개선)
