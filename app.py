@@ -127,20 +127,21 @@ def fetch_all_data():
 data = fetch_all_data()
 
 # --- 마켓/예측 리포트 로더 (캐시 5분) ---
-@st.cache_data(ttl=300)
-def _load_text_from_storage(prefix: str):
-    """Supabase Storage REST API 직접 호출 (supabase-py storage 우회)"""
-    if not SUPABASE_URL or not SUPABASE_KEY:
+# @st.cache_data 제거: 전역변수(SUPABASE_URL/KEY)가 캐시 키에 반영 안 되는 버그 방지
+def _load_text_from_storage(supabase_url, supabase_key, prefix: str):
+    """Supabase Storage REST API 직접 호출 - 인자로 URL/KEY 명시 전달"""
+    print(f"DEBUG _load_text_from_storage called: url={'set' if supabase_url else 'None'}, prefix={prefix}")
+    if not supabase_url or not supabase_key:
+        print(f"DEBUG: supabase_url or key is None, aborting")
         return None, None
     try:
         import requests as _req
         headers = {
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
             "Content-Type": "application/json"
         }
-        # 1. 파일 목록 조회 (REST POST)
-        list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
+        list_url = f"{supabase_url}/storage/v1/object/list/{CHARTS_BUCKET}"
         resp = _req.post(list_url, headers=headers,
                          json={"prefix": prefix, "sortBy": {"column": "name", "order": "desc"}},
                          timeout=10)
@@ -150,8 +151,7 @@ def _load_text_from_storage(prefix: str):
             if files and isinstance(files, list):
                 latest_name = files[0].get('name', '')
                 if latest_name:
-                    # 2. 파일 내용 읽기 (공개 버킷 → 인증 불필요)
-                    file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{latest_name}"
+                    file_url = f"{supabase_url}/storage/v1/object/public/{CHARTS_BUCKET}/{latest_name}"
                     file_resp = _req.get(file_url, timeout=15)
                     print(f"File fetch ({latest_name}): status={file_resp.status_code}")
                     if file_resp.ok:
@@ -170,8 +170,8 @@ def load_market_report():
                 return res.data[0]['content'], res.data[0].get('filename', 'market_report.txt')
     except Exception:
         pass
-    # 2. Supabase Storage
-    content, fname = _load_text_from_storage('market_analysis_report_')
+    # 2. Supabase Storage (URL/KEY 명시 전달)
+    content, fname = _load_text_from_storage(SUPABASE_URL, SUPABASE_KEY, 'market_analysis_report_')
     if content:
         return content, fname
     # 3. 로컬 파일 폴백
@@ -194,8 +194,8 @@ def load_daily_report():
                 return res.data[0]['content'], res.data[0].get('filename', 'prediction_report.txt')
     except Exception:
         pass
-    # 2. Supabase Storage
-    content, fname = _load_text_from_storage('prediction_report_')
+    # 2. Supabase Storage (URL/KEY 명시 전달)
+    content, fname = _load_text_from_storage(SUPABASE_URL, SUPABASE_KEY, 'prediction_report_')
     if content:
         return content, fname
     # 3. 로컬 파일 폴백
