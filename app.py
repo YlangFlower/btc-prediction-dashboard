@@ -699,7 +699,7 @@ with tab_report:
     import requests as _rq
 
     def _fetch_report_direct(prefix):
-        """@st.cache_data 없이 직접 Storage REST API 호출 - 캐시 문제 완전 우회"""
+        """Storage list API의 prefix는 폴더 경로용 → ""로 전체 목록 후 Python 필터링"""
         if not SUPABASE_URL or not SUPABASE_KEY:
             return None, f"SUPABASE_URL={'set' if SUPABASE_URL else 'None'}, KEY={'set' if SUPABASE_KEY else 'None'}"
         try:
@@ -709,17 +709,21 @@ with tab_report:
                 "Content-Type": "application/json"
             }
             list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
+            # prefix=""로 root 전체 목록 조회 (prefix는 폴더 경로용이므로 파일명 필터에 사용 불가)
             r = _rq.post(list_url, headers=headers,
-                         json={"prefix": prefix, "sortBy": {"column": "name", "order": "desc"}},
+                         json={"prefix": "", "sortBy": {"column": "name", "order": "desc"}},
                          timeout=10)
             if not r.ok:
                 return None, f"list API {r.status_code}: {r.text[:300]}"
-            files = r.json()
-            if not (files and isinstance(files, list)):
-                return None, f"prefix='{prefix}'에 해당 파일 없음. 버킷 응답: {r.text[:200]}"
-            fname = files[0].get('name', '')
-            if not fname:
-                return None, f"파일명이 비어있음: {files[:2]}"
+            all_files = r.json()
+            if not isinstance(all_files, list):
+                return None, f"버킷 응답 형식 오류: {str(all_files)[:200]}"
+            # Python에서 파일명 prefix로 필터
+            matching = [f for f in all_files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
+            if not matching:
+                names = [f.get('name') for f in all_files if isinstance(f, dict)]
+                return None, f"prefix='{prefix}'인 파일 없음. 버킷 내 파일: {names}"
+            fname = sorted(matching, key=lambda x: x['name'])[-1]['name']  # 최신 파일
             file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{fname}"
             fr = _rq.get(file_url, timeout=15)
             if not fr.ok:
