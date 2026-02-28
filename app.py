@@ -129,23 +129,35 @@ data = fetch_all_data()
 # --- 마켓/예측 리포트 로더 (캐시 5분) ---
 @st.cache_data(ttl=300)
 def _load_text_from_storage(prefix: str):
-    """Supabase Storage 공개 버킷에서 prefix에 맞는 최신 텍스트 파일 읽기 (URL 방식)"""
+    """Supabase Storage REST API 직접 호출 (supabase-py storage 우회)"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None, None
     try:
-        if supabase:
-            files = supabase.storage.from_(CHARTS_BUCKET).list()
-            if files:
-                matching = [f for f in files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
-                if matching:
-                    latest = sorted(matching, key=lambda x: x['name'])[-1]
-                    # download() API 호환성 문제를 피하기 위해 공개 URL로 직접 fetch
-                    url = supabase.storage.from_(CHARTS_BUCKET).get_public_url(latest['name'])
-                    import requests as _req
-                    resp = _req.get(url, timeout=15)
-                    if resp.ok:
-                        return resp.text, latest['name']
-                    print(f"Storage URL fetch failed: {resp.status_code} {url}")
+        import requests as _req
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
+        # 1. 파일 목록 조회 (REST POST)
+        list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
+        resp = _req.post(list_url, headers=headers,
+                         json={"prefix": prefix, "sortBy": {"column": "name", "order": "desc"}},
+                         timeout=10)
+        print(f"Storage list ({prefix}): status={resp.status_code}, body={resp.text[:300]}")
+        if resp.ok:
+            files = resp.json()
+            if files and isinstance(files, list):
+                latest_name = files[0].get('name', '')
+                if latest_name:
+                    # 2. 파일 내용 읽기 (공개 버킷 → 인증 불필요)
+                    file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{latest_name}"
+                    file_resp = _req.get(file_url, timeout=15)
+                    print(f"File fetch ({latest_name}): status={file_resp.status_code}")
+                    if file_resp.ok:
+                        return file_resp.text, latest_name
     except Exception as e:
-        print(f"Storage text read error ({prefix}): {e}")
+        print(f"Storage REST error ({prefix}): {e}")
     return None, None
 
 @st.cache_data(ttl=300)
