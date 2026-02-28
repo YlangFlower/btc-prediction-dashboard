@@ -1,0 +1,41 @@
+# 환경 변수 (절대 공개 금지)
+.env
+*.env
+
+# 대용량 모델 파일
+*.pth
+*.pkl
+*.cbm
+*.h5
+
+# 대용량 데이터셋
+*.csv
+*.db
+
+# Python 캐시
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# 임시 분석/작업 파일
+cell*.txt
+cell*.py
+temp_*.txt
+temp_*.py
+nb_dump.txt
+*.tmp
+check_*.py
+fix_*.py
+patch_*.py
+add_*.py
+verify_*.py
+update_*.py
+create_*.py
+analyze_*.py
+debug_*.py
+dump_*.py
+find_*.py
+improve_*.py
+recover_*.py
+restore_*.py
+upgrade_*.py
