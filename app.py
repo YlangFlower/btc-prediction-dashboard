@@ -748,8 +748,7 @@ with tab_report:
             # Python에서 파일명 prefix로 필터
             matching = [f for f in all_files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
             if not matching:
-                names = [f.get('name') for f in all_files if isinstance(f, dict)]
-                return None, f"prefix='{prefix}'인 파일 없음. 버킷 내 파일: {names}"
+                return None, "파일 없음"  # 내부 버킷 구조 노출 방지
             fname = sorted(matching, key=lambda x: x['name'])[-1]['name']  # 최신 파일
             file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{fname}"
             fr = _rq.get(file_url, timeout=15)
@@ -767,8 +766,6 @@ with tab_report:
         with st.container(border=True):
             st.code(daily_text, language="markdown")
     else:
-        with st.expander("🔍 로드 실패 상세 (클릭)", expanded=True):
-            st.error(f"실패 원인: {daily_info}")
         st.info("일간 예측 리포트가 없습니다. `32FA_daily_predict_report_v7E.ipynb`를 실행하면 생성됩니다.")
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -781,7 +778,5 @@ with tab_report:
         with st.container(border=True):
             st.code(market_text, language="markdown")
     else:
-        with st.expander("🔍 로드 실패 상세 (클릭)", expanded=True):
-            st.error(f"실패 원인: {market_info}")
         st.info("마켓 리포트가 없습니다. 해당 노트북을 실행해주세요.")
 
