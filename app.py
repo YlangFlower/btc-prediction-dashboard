@@ -160,7 +160,7 @@ def _load_text_from_storage(supabase_url, supabase_key, prefix: str):
         print(f"Storage REST error ({prefix}): {e}")
     return None, None
 
-@st.cache_data(ttl=300)
+# 캐시 제거: Streamlit Cloud 서버측 캐시 지속 문제 방지
 def load_market_report():
     # 1. Supabase table
     try:
@@ -184,7 +184,6 @@ def load_market_report():
                     return f.read(), os.path.basename(latest)
     return None, None
 
-@st.cache_data(ttl=300)
 def load_daily_report():
     # 1. Supabase table
     try:
@@ -691,30 +690,67 @@ with tab_charts:
         st.info("차트 이미지가 없습니다. Supabase Storage `charts` 버킷에 업로드하거나 파이프라인을 실행하면 자동 생성됩니다.")
 
 # ==============================================================================
-# 탭 4: 일간/주간 마켓 리포트 (⑤⑥ 개선)
+# 탭 4: 일간/주간 마켓 리포트
 # ==============================================================================
 with tab_report:
     st.markdown("### 📝 일간/주간 마켓 리포트")
     st.markdown("일간 AI 예측 리포트 및 종합 마켓 분석 리포트를 확인합니다.")
 
-    # ─── ⑥ 일간 예측 리포트 (상단) ───────────────────────────────────────────
-    daily_text, daily_fname = load_daily_report()
+    import requests as _rq
+
+    def _fetch_report_direct(prefix):
+        """@st.cache_data 없이 직접 Storage REST API 호출 - 캐시 문제 완전 우회"""
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            return None, f"SUPABASE_URL={'set' if SUPABASE_URL else 'None'}, KEY={'set' if SUPABASE_KEY else 'None'}"
+        try:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json"
+            }
+            list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
+            r = _rq.post(list_url, headers=headers,
+                         json={"prefix": prefix, "sortBy": {"column": "name", "order": "desc"}},
+                         timeout=10)
+            if not r.ok:
+                return None, f"list API {r.status_code}: {r.text[:300]}"
+            files = r.json()
+            if not (files and isinstance(files, list)):
+                return None, f"prefix='{prefix}'에 해당 파일 없음. 버킷 응답: {r.text[:200]}"
+            fname = files[0].get('name', '')
+            if not fname:
+                return None, f"파일명이 비어있음: {files[:2]}"
+            file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{fname}"
+            fr = _rq.get(file_url, timeout=15)
+            if not fr.ok:
+                return None, f"파일 다운로드 실패 {fr.status_code}: {file_url}"
+            return fr.text, fname
+        except Exception as e:
+            return None, f"Exception: {e}"
+
+    # 일간 예측 리포트
     st.markdown("#### 📋 일간 AI 예측 리포트")
+    daily_text, daily_info = _fetch_report_direct('prediction_report_')
     if daily_text:
-        st.markdown(f"<p style='color: #8b949e; margin-bottom: 0.5rem;'>파일: <strong>{daily_fname}</strong></p>", unsafe_allow_html=True)
+        st.caption(f"파일: {daily_info}")
         with st.container(border=True):
             st.code(daily_text, language="markdown")
     else:
+        with st.expander("🔍 로드 실패 상세 (클릭)", expanded=True):
+            st.error(f"실패 원인: {daily_info}")
         st.info("일간 예측 리포트가 없습니다. `32FA_daily_predict_report_v7E.ipynb`를 실행하면 생성됩니다.")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ─── ⑤ 마켓 리포트 (하단) ─────────────────────────────────────────────────
+    # 마켓 리포트
     st.markdown("#### 📊 일간/주간 마켓 종합 분석 리포트")
-    market_text, market_fname = load_market_report()
+    market_text, market_info = _fetch_report_direct('market_analysis_report_')
     if market_text:
-        st.markdown(f"<p style='color: #8b949e; margin-bottom: 0.5rem;'>파일: <strong>{market_fname}</strong></p>", unsafe_allow_html=True)
+        st.caption(f"파일: {market_info}")
         with st.container(border=True):
             st.code(market_text, language="markdown")
     else:
+        with st.expander("🔍 로드 실패 상세 (클릭)", expanded=True):
+            st.error(f"실패 원인: {market_info}")
         st.info("마켓 리포트가 없습니다. 해당 노트북을 실행해주세요.")
+
