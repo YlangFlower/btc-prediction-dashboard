@@ -129,7 +129,7 @@ data = fetch_all_data()
 # --- 마켓/예측 리포트 로더 (캐시 5분) ---
 @st.cache_data(ttl=300)
 def _load_text_from_storage(prefix: str):
-    """Supabase Storage 'charts' 버킷에서 prefix에 맞는 최신 텍스트 파일 읽기"""
+    """Supabase Storage 공개 버킷에서 prefix에 맞는 최신 텍스트 파일 읽기 (URL 방식)"""
     try:
         if supabase:
             files = supabase.storage.from_(CHARTS_BUCKET).list()
@@ -137,8 +137,13 @@ def _load_text_from_storage(prefix: str):
                 matching = [f for f in files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
                 if matching:
                     latest = sorted(matching, key=lambda x: x['name'])[-1]
-                    raw = supabase.storage.from_(CHARTS_BUCKET).download(latest['name'])
-                    return raw.decode('utf-8'), latest['name']
+                    # download() API 호환성 문제를 피하기 위해 공개 URL로 직접 fetch
+                    url = supabase.storage.from_(CHARTS_BUCKET).get_public_url(latest['name'])
+                    import requests as _req
+                    resp = _req.get(url, timeout=15)
+                    if resp.ok:
+                        return resp.text, latest['name']
+                    print(f"Storage URL fetch failed: {resp.status_code} {url}")
     except Exception as e:
         print(f"Storage text read error ({prefix}): {e}")
     return None, None
