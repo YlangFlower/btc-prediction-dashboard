@@ -208,24 +208,50 @@ def load_daily_report():
     return None, None
 
 # --- 예측 이미지 탐색 함수 (Supabase Storage 우선, 로컬 폴백) ---
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def get_chart_url(chart_name: str) -> str | None:
-    """Supabase Storage에서 차트 URL 반환"""
+    """
+    Supabase Storage에서 차트 URL 반환.
+    - 날짜 suffix 파일(chart_price_v7e_2026-03-01.png) → prefix 기반으로 최신 탐색
+    - 고정 이름 파일(backtest_v7e.png) → 직접 URL 반환
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
     try:
-        if supabase:
-            return supabase.storage.from_(CHARTS_BUCKET).get_public_url(chart_name)
+        import requests as _rq
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
+        # 버킷 전체 목록 조회
+        list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
+        r = _rq.post(list_url, headers=headers,
+                     json={"prefix": "", "sortBy": {"column": "name", "order": "desc"}},
+                     timeout=8)
+        if not r.ok:
+            return None
+        all_files = r.json()
+        if not isinstance(all_files, list):
+            return None
+
+        # 파일명에서 확장자 제거한 stem(예: chart_price_v7e)으로 prefix 매칭
+        stem = os.path.splitext(chart_name)[0]  # e.g. "chart_price_v7e"
+        matching = [f['name'] for f in all_files
+                    if isinstance(f, dict) and f.get('name', '').startswith(stem)]
+        if matching:
+            latest = sorted(matching)[-1]  # 날짜 내림차순 → 마지막 = 최신
+            return f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{latest}"
     except Exception:
         pass
     return None
 
 def find_pred_image(names):
     """Supabase Storage URL 우선 반환, 없으면 로컬 파일 경로 탐색."""
-    # 1순위: Supabase Storage
     for name in names:
         url = get_chart_url(name)
         if url:
-            return url  # URL 문자열 반환
-    # 2순위: 로컬 파일 (개발 환경)
+            return url
     search_dirs = [
         "c:\\25WinterProject",
         "c:\\25WinterProject\\models\\production\\v7E_production",
@@ -237,6 +263,7 @@ def find_pred_image(names):
             if os.path.exists(p):
                 return p
     return None
+
 
 # 포맷팅 유틸
 def format_krw(val):
