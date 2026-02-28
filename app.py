@@ -130,9 +130,7 @@ data = fetch_all_data()
 # @st.cache_data 제거: 전역변수(SUPABASE_URL/KEY)가 캐시 키에 반영 안 되는 버그 방지
 def _load_text_from_storage(supabase_url, supabase_key, prefix: str):
     """Supabase Storage REST API 직접 호출 - 인자로 URL/KEY 명시 전달"""
-    print(f"DEBUG _load_text_from_storage called: url={'set' if supabase_url else 'None'}, prefix={prefix}")
     if not supabase_url or not supabase_key:
-        print(f"DEBUG: supabase_url or key is None, aborting")
         return None, None
     try:
         import requests as _req
@@ -145,7 +143,6 @@ def _load_text_from_storage(supabase_url, supabase_key, prefix: str):
         resp = _req.post(list_url, headers=headers,
                          json={"prefix": prefix, "sortBy": {"column": "name", "order": "desc"}},
                          timeout=10)
-        print(f"Storage list ({prefix}): status={resp.status_code}, body={resp.text[:300]}")
         if resp.ok:
             files = resp.json()
             if files and isinstance(files, list):
@@ -153,11 +150,10 @@ def _load_text_from_storage(supabase_url, supabase_key, prefix: str):
                 if latest_name:
                     file_url = f"{supabase_url}/storage/v1/object/public/{CHARTS_BUCKET}/{latest_name}"
                     file_resp = _req.get(file_url, timeout=15)
-                    print(f"File fetch ({latest_name}): status={file_resp.status_code}")
                     if file_resp.ok:
                         return file_resp.text, latest_name
-    except Exception as e:
-        print(f"Storage REST error ({prefix}): {e}")
+    except Exception:
+        pass
     return None, None
 
 # 캐시 제거: Streamlit Cloud 서버측 캐시 지속 문제 방지
@@ -726,9 +722,9 @@ with tab_report:
     import requests as _rq
 
     def _fetch_report_direct(prefix):
-        """Storage list API의 prefix는 폴더 경로용 → ""로 전체 목록 후 Python 필터링"""
+        """Storage 전체 목록 조회 후 Python에서 prefix 필터링"""
         if not SUPABASE_URL or not SUPABASE_KEY:
-            return None, f"SUPABASE_URL={'set' if SUPABASE_URL else 'None'}, KEY={'set' if SUPABASE_KEY else 'None'}"
+            return None, "데이터 소스 미설정"
         try:
             headers = {
                 "apikey": SUPABASE_KEY,
@@ -736,27 +732,25 @@ with tab_report:
                 "Content-Type": "application/json"
             }
             list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
-            # prefix=""로 root 전체 목록 조회 (prefix는 폴더 경로용이므로 파일명 필터에 사용 불가)
             r = _rq.post(list_url, headers=headers,
                          json={"prefix": "", "sortBy": {"column": "name", "order": "desc"}},
                          timeout=10)
             if not r.ok:
-                return None, f"list API {r.status_code}: {r.text[:300]}"
+                return None, "데이터 로딩 실패"
             all_files = r.json()
             if not isinstance(all_files, list):
-                return None, f"버킷 응답 형식 오류: {str(all_files)[:200]}"
-            # Python에서 파일명 prefix로 필터
+                return None, "데이터 로딩 실패"
             matching = [f for f in all_files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
             if not matching:
-                return None, "파일 없음"  # 내부 버킷 구조 노출 방지
-            fname = sorted(matching, key=lambda x: x['name'])[-1]['name']  # 최신 파일
+                return None, "파일 없음"
+            fname = sorted(matching, key=lambda x: x['name'])[-1]['name']
             file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{fname}"
             fr = _rq.get(file_url, timeout=15)
             if not fr.ok:
-                return None, f"파일 다운로드 실패 {fr.status_code}: {file_url}"
+                return None, "데이터 로딩 실패"
             return fr.content.decode('utf-8'), fname
-        except Exception as e:
-            return None, f"Exception: {e}"
+        except Exception:
+            return None, "데이터 로딩 실패"
 
     # 일간 예측 리포트
     st.markdown("#### 📋 일간 AI 예측 리포트")
