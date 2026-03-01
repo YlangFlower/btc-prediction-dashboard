@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import json
 import glob
+import textwrap
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
@@ -541,7 +542,7 @@ with tab_news:
         avg_score = recent_7d['sentiment_score'].mean()
 
         # 상단 게이지 박스 헤더
-        st.markdown(f"""
+        st.markdown(textwrap.dedent(f"""
         <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                 <div style="font-size: 1.25rem; font-weight: 800; color: #e2e8f0;">📊 주간 평균 감성 지표 (Sentiment)</div>
@@ -551,7 +552,7 @@ with tab_news:
                 {'<span style="color:#4ade80;">🟢 <strong>주간 모멘텀 긍정적:</strong></span> 기관 매수세, 호재성 뉴스가 가격 하락을 강하게 방어하고 있습니다.' if avg_score > 0.3 else '<span style="color:#f87171;">🔴 <strong>주간 모멘텀 부정적:</strong></span> 거시적 불안감 혹은 악재가 하방 압력을 높이고 있습니다.' if avg_score < -0.3 else '<span style="color:#94a3b8;">⚪ <strong>주간 모멘텀 중립적:</strong></span> 뚜렷한 재료 없이 기술적 지표에 의해 방향이 결정될 확률이 높습니다.'}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """), unsafe_allow_html=True)
 
         st.markdown("#### 🕒 최근 14일 헤드라인 분석 피드")
 
@@ -587,7 +588,7 @@ with tab_news:
             </div>
             """
         html_feed += "</div>"
-        st.markdown(html_feed, unsafe_allow_html=True)
+        st.markdown(textwrap.dedent(html_feed), unsafe_allow_html=True)
     else:
         st.info("최근 뉴스 감성 데이터가 존재하지 않습니다.")
 
@@ -801,35 +802,35 @@ with tab_report:
         icon = "🚀" if is_up else "🛡️"
         
         html = f"""
-        <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <span style="font-size: 14px; color: #94a3b8;">분석 시점: {data['date']}</span>
-                    <h3 style="margin: 0; padding: 0; color: {text_color}; font-size: 2rem;">{icon} {data['direction']} 예측</h3>
-                </div>
-                <div style="text-align: right; background: rgba(0,0,0,0.3); padding: 0.75rem 1.25rem; border-radius: 8px;">
-                    <div style="font-size: 13px; color: #94a3b8; display: inline-block; margin-right: 1.5rem;">기대 정확도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['acc']}</span></div>
-                    <div style="font-size: 13px; color: #94a3b8; display: inline-block;">AI 신뢰도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['conf']}</span></div>
-                </div>
-            </div>
-            <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid {text_color};">
-                <span style="color: #e2e8f0; font-size: 1.05rem; line-height: 1.6;">{data['summary']}</span>
-            </div>
+<div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <span style="font-size: 14px; color: #94a3b8;">분석 시점: {data['date']}</span>
+            <h3 style="margin: 0; padding: 0; color: {text_color}; font-size: 2rem;">{icon} {data['direction']} 예측</h3>
         </div>
-        """
+        <div style="text-align: right; background: rgba(0,0,0,0.3); padding: 0.75rem 1.25rem; border-radius: 8px;">
+            <div style="font-size: 13px; color: #94a3b8; display: inline-block; margin-right: 1.5rem;">기대 정확도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['acc']}</span></div>
+            <div style="font-size: 13px; color: #94a3b8; display: inline-block;">AI 신뢰도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['conf']}</span></div>
+        </div>
+    </div>
+    <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid {text_color};">
+        <span style="color: #e2e8f0; font-size: 1.05rem; line-height: 1.6;">{data['summary']}</span>
+    </div>
+</div>
+"""
         st.markdown(html, unsafe_allow_html=True)
         
         if data["models"]:
             cols = st.columns(len(data["models"]))
             for i, m in enumerate(data["models"]):
                 with cols[i]:
-                    st.markdown(f"""
+                    st.markdown(textwrap.dedent(f"""
                     <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                         <div style="font-weight: 800; color: #e2e8f0; margin-bottom: 0.5rem; font-size: 1.05rem;">{m['name']}</div>
                         <div style="color: #fb923c; font-weight: bold; margin-bottom: 0.75rem; font-size: 0.95rem;">{m['val']}</div>
                         <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.5;">{m['desc']}</div>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """), unsafe_allow_html=True)
                
         st.markdown("<br>", unsafe_allow_html=True)
         with st.expander("📄 [클릭] 일간 리포트 전문 보기"):
@@ -881,48 +882,49 @@ with tab_report:
             st.code(raw_text, language="markdown")
             return
         
-        html = f"""
-        <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
-            <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                <div>
-                    <div style="font-size: 1.4rem; font-weight: 800; color: #e2e8f0;">📆 이번 주 예측 기간: <span style="color: #60a5fa;">{data['period']}</span></div>
-                </div>
-                <div style="font-size: 14px; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 16px;">
-                    작성일: {data['date']}
-                </div>
+        html = "" 
+        html += f"""
+<div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+    <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #e2e8f0;">📆 이번 주 예측 기간: <span style="color: #60a5fa;">{data['period']}</span></div>
+        </div>
+        <div style="font-size: 14px; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 16px;">
+            작성일: {data['date']}
+        </div>
+    </div>
+    
+    <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid #60a5fa; margin-bottom: 2rem;">
+        <span style="color: #e2e8f0; font-size: 1.1rem; line-height: 1.6;">{data['summary']}</span>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
+                <span style="font-size: 1.2rem;">📋</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">리스크 매트릭스</h4>
             </div>
-            
-            <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid #60a5fa; margin-bottom: 2rem;">
-                <span style="color: #e2e8f0; font-size: 1.1rem; line-height: 1.6;">{data['summary']}</span>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-                <div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
-                        <span style="font-size: 1.2rem;">📋</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">리스크 매트릭스</h4>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem 1rem;">
-        """
+            <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem 1rem;">
+"""
         
         risk = data.get("risk", {})
         for k, label in [("daily", "일간 신뢰도"), ("weekly", "주간 변동성"), ("model", "모델 합의"), ("total", "종합 리스크")]:
             val = risk.get(k, "N/A")
             val_color = "#f87171" if "ACTIVE" in val or "위험" in val or "⚠️" in val or "중상" in val else "#e2e8f0"
             html += f"""
-                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 1rem 0;">
-                        <span style="color: #94a3b8; font-size:0.95rem;">{label}</span>
-                        <span style="font-weight: 800; color: {val_color}; font-size:0.95rem;">{val}</span>
-                    </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 1rem 0;">
+                    <span style="color: #94a3b8; font-size:0.95rem;">{label}</span>
+                    <span style="font-weight: 800; color: {val_color}; font-size:0.95rem;">{val}</span>
+                </div>
             """
             
         html += """
-                    </div>
-                </div>
-                <div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
-                        <span style="font-size: 1.2rem;">🎯</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">시나리오 분석</h4>
-                    </div>
-        """
+            </div>
+        </div>
+        <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
+                <span style="font-size: 1.2rem;">🎯</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">시나리오 분석</h4>
+            </div>
+"""
         for sc in data.get("scenario", []):
             icon = "📈" if "상승" in sc.split(":")[0] else "📉" if "하락" in sc.split(":")[0] else "▶"
             try:
@@ -932,39 +934,39 @@ with tab_report:
             title_color = "#4ade80" if "상승" in title else "#f87171" if "하락" in title else "#fb923c"
                 
             html += f"""
-                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;">
-                        <div style="color: {title_color}; font-weight: 800; margin-bottom: 0.5rem; font-size:1.05rem;">{icon} {title}</div>
-                        <div style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">{desc.strip()}</div>
-                    </div>
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;">
+                <div style="color: {title_color}; font-weight: 800; margin-bottom: 0.5rem; font-size:1.05rem;">{icon} {title}</div>
+                <div style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">{desc.strip()}</div>
+            </div>
             """
             
         html += """
-                </div>
-            </div>
-            
-            <div style="margin-top: 2rem;">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
-                    <span style="font-size: 1.2rem;">💡</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">실행 포인트 (권장 전략)</h4>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
-        """
+        </div>
+    </div>
+    
+    <div style="margin-top: 2rem;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
+            <span style="font-size: 1.2rem;">💡</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">실행 포인트 (권장 전략)</h4>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
+"""
         
         for i, pt in enumerate(data.get("points", [])):
             parts = pt.split(':', 1)
             title = parts[0]
             desc = parts[1] if len(parts) > 1 else ""
             html += f"""
-                <div style="background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <div style="color: #38bdf8; font-weight: 800; margin-bottom: 0.5rem; font-size: 1.05rem;">{title}</div>
-                    <div style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">{desc.strip()}</div>
-                </div>
+            <div style="background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="color: #38bdf8; font-weight: 800; margin-bottom: 0.5rem; font-size: 1.05rem;">{title}</div>
+                <div style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">{desc.strip()}</div>
+            </div>
             """
             
         html += """
-                </div>
-            </div>
         </div>
-        """
+    </div>
+</div>
+"""
         st.markdown(html, unsafe_allow_html=True)
         
         with st.expander("📄 [클릭] 주간 리포트 전문 보기"):
