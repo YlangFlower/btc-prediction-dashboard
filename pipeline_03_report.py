@@ -1218,6 +1218,7 @@ if 'report' in locals() and SUPABASE_URL and UPLOAD_KEY:
         report_files = glob.glob(os.path.join(MODEL_DIR, 'prediction_report_*.txt'))
         if report_files:
             latest = sorted(report_files)[-1]
+            # 날짜 포함 파일명으로 업로드 (대시보드가 자동으로 최신 날짜 파일을 선택함)
             upload_to_storage(latest, os.path.basename(latest), SUPABASE_URL, UPLOAD_KEY)
 
     print('\n🎉 업로드 완료! 웹사이트에서 최신 데이터 확인:')
