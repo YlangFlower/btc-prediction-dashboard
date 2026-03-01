@@ -511,12 +511,13 @@ log('AI prompts defined')
 # ============================================================
 # Visualization Functions - Dark Dashboard Theme
 # ============================================================
+import matplotlib
+matplotlib.use('Agg')  # GitHub Actions headless 환경을 위해 non-interactive 백엔드 설정
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib import font_manager
 import matplotlib.patches as mpatches
 import matplotlib.patches as patches
-import matplotlib
 
 def setup_english_font():
     """Setup clean English font for charts"""
@@ -1072,6 +1073,7 @@ def generate_prediction_report(result, use_openai=True, save_to_file=True, creat
         meta_prob = shap_result['meta_prob']
 
         _today = (datetime.now(timezone.utc) + timedelta(hours=9)).strftime('%Y-%m-%d')
+        os.makedirs(MODEL_DIR, exist_ok=True)  # 디렉토리 없으면 생성
 
         # Chart: 모델별 예측 + 앙상블 설명
         print('\nChart: Model Predictions + Ensemble Info...')
