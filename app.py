@@ -717,9 +717,10 @@ with tab_charts:
 # ==============================================================================
 with tab_report:
     st.markdown("### 📝 일간/주간 마켓 리포트")
-    st.markdown("일간 AI 예측 리포트 및 종합 마켓 분석 리포트를 확인합니다.")
+    st.markdown("<p style='color: #8b949e; font-size: 0.95rem; margin-bottom: 1.5rem;'>일간 AI 예측 리포트 및 종합 마켓 분석 리포트를 확인합니다.</p>", unsafe_allow_html=True)
 
     import requests as _rq
+    import re
 
     def _fetch_report_direct(prefix):
         """Storage 전체 목록 조회 후 Python에서 prefix 필터링"""
@@ -752,25 +753,236 @@ with tab_report:
         except Exception:
             return None, "데이터 로딩 실패"
 
-    # 일간 예측 리포트
-    st.markdown("#### 📋 일간 AI 예측 리포트")
+    def parse_daily_report(text):
+        data = { "date": "N/A", "direction": "N/A", "acc": "N/A", "conf": "N/A", "summary": "", "models": [] }
+        lines = text.split('\n')
+        # Extract headers
+        for line in lines:
+            if "분석 시점:" in line:
+                try: data["date"] = line.split("분석 시점:")[-1].strip()
+                except: pass
+            elif "최종 예측:" in line:
+                m = re.search(r"최종 예측:\s*([^\s—]+)\s*—.*?정확도\s*(\d+%?).*?신뢰도\s*(\d+%?)", line)
+                if m:
+                    data["direction"] = m.group(1).strip()
+                    data["acc"] = m.group(2).strip()
+                    data["conf"] = m.group(3).strip()
+        # Extract summary
+        try:
+            idx = lines.index("📌 한줄 요약")
+            summary = ""
+            for i in range(idx+1, len(lines)):
+                if "━" in lines[i]: break
+                if lines[i].strip():
+                    summary += lines[i].strip() + " "
+            data["summary"] = summary.strip()
+        except: pass
+        # Extract models
+        for i, line in enumerate(lines):
+            if line.startswith("①") or line.startswith("②") or line.startswith("③"):
+                parts = line.split('-')
+                name = parts[0].strip('①②③ ')
+                val = '-'.join(parts[1:]).strip() if len(parts)>1 else ""
+                desc = lines[i+1].replace('→', '').strip() if i+1 < len(lines) and "→" in lines[i+1] else ""
+                data["models"].append({"name": name, "val": val, "desc": desc})
+        return data
+
+    def render_daily_ui(data, raw_text):
+        if not data or data["direction"] == "N/A":
+            st.code(raw_text, language="markdown")
+            return
+        
+        is_up = "상승" in data["direction"]
+        bg_color = "rgba(34, 197, 94, 0.1)" if is_up else "rgba(239, 68, 68, 0.1)"
+        border_color = "rgba(34, 197, 94, 0.3)" if is_up else "rgba(239, 68, 68, 0.3)"
+        text_color = "#4ade80" if is_up else "#f87171"
+        icon = "🚀" if is_up else "🛡️"
+        
+        html = f"""
+        <div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <span style="font-size: 14px; color: #94a3b8;">분석 시점: {data['date']}</span>
+                    <h3 style="margin: 0; padding: 0; color: {text_color}; font-size: 2rem;">{icon} {data['direction']} 예측</h3>
+                </div>
+                <div style="text-align: right; background: rgba(0,0,0,0.3); padding: 0.75rem 1.25rem; border-radius: 8px;">
+                    <div style="font-size: 13px; color: #94a3b8; display: inline-block; margin-right: 1.5rem;">기대 정확도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['acc']}</span></div>
+                    <div style="font-size: 13px; color: #94a3b8; display: inline-block;">AI 신뢰도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['conf']}</span></div>
+                </div>
+            </div>
+            <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid {text_color};">
+                <span style="color: #e2e8f0; font-size: 1.05rem; line-height: 1.6;">{data['summary']}</span>
+            </div>
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+        
+        if data["models"]:
+            cols = st.columns(len(data["models"]))
+            for i, m in enumerate(data["models"]):
+                with cols[i]:
+                    st.markdown(f"""
+                    <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div style="font-weight: 800; color: #e2e8f0; margin-bottom: 0.5rem; font-size: 1.05rem;">{m['name']}</div>
+                        <div style="color: #fb923c; font-weight: bold; margin-bottom: 0.75rem; font-size: 0.95rem;">{m['val']}</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.5;">{m['desc']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+               
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("📄 [클릭] 일간 리포트 전문 보기"):
+            st.code(raw_text, language="markdown")
+
+    def parse_weekly_report(text):
+        data = { "date": "N/A", "period": "N/A", "summary": "", "risk": {}, "scenario": [], "points": [] }
+        lines = text.split('\n')
+        
+        for line in lines:
+            if "리포트 작성일:" in line:
+                data["date"] = line.split("리포트 작성일:")[-1].strip()
+            elif "이번 주 예측 기간:" in line:
+                data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
+                
+        try:
+            idx = lines.index("📌 한줄 요약")
+            summary = ""
+            for i in range(idx+1, len(lines)):
+                if "┌" in lines[i] or "━" in lines[i]: break
+                if lines[i].strip():
+                    summary += lines[i].strip() + " "
+            data["summary"] = summary.strip()
+        except: pass
+        
+        for line in lines:
+            if "│" in line:
+                parts = [p.strip() for p in line.split("│")]
+                if len(parts) >= 3:
+                    k, v = parts[1], parts[2]
+                    if "신뢰도" in k: data["risk"]["daily"] = v
+                    if "변동성" in k: data["risk"]["weekly"] = v
+                    if "합의" in k: data["risk"]["model"] = v
+                    if "리스크" in k: data["risk"]["total"] = v
+                    
+            if line.startswith("▶"):
+                data["scenario"].append(line.replace("▶", "").strip())
+                
+            if line.startswith("①") or line.startswith("②") or line.startswith("③") or line.startswith("④"):
+                data["points"].append(line.strip())
+                
+        return data
+
+    def render_weekly_ui(data, raw_text):
+        if not data or not data["summary"]: 
+            st.code(raw_text, language="markdown")
+            return
+        
+        html = f"""
+        <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+            <div style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #e2e8f0;">📆 이번 주 예측 기간: <span style="color: #60a5fa;">{data['period']}</span></div>
+                </div>
+                <div style="font-size: 14px; color: #94a3b8; background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 16px;">
+                    작성일: {data['date']}
+                </div>
+            </div>
+            
+            <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid #60a5fa; margin-bottom: 2rem;">
+                <span style="color: #e2e8f0; font-size: 1.1rem; line-height: 1.6;">{data['summary']}</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
+                        <span style="font-size: 1.2rem;">📋</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">리스크 매트릭스</h4>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 0.5rem 1rem;">
+        """
+        
+        risk = data.get("risk", {})
+        for k, label in [("daily", "일간 신뢰도"), ("weekly", "주간 변동성"), ("model", "모델 합의"), ("total", "종합 리스크")]:
+            val = risk.get(k, "N/A")
+            val_color = "#f87171" if "ACTIVE" in val or "위험" in val or "⚠️" in val or "중상" in val else "#e2e8f0"
+            html += f"""
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 1rem 0;">
+                        <span style="color: #94a3b8; font-size:0.95rem;">{label}</span>
+                        <span style="font-weight: 800; color: {val_color}; font-size:0.95rem;">{val}</span>
+                    </div>
+            """
+            
+        html += """
+                    </div>
+                </div>
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
+                        <span style="font-size: 1.2rem;">🎯</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">시나리오 분석</h4>
+                    </div>
+        """
+        for sc in data.get("scenario", []):
+            icon = "📈" if "상승" in sc.split(":")[0] else "📉" if "하락" in sc.split(":")[0] else "▶"
+            try:
+                title, desc = sc.split(':', 1)
+            except:
+                title, desc = sc, ""
+            title_color = "#4ade80" if "상승" in title else "#f87171" if "하락" in title else "#fb923c"
+                
+            html += f"""
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem;">
+                        <div style="color: {title_color}; font-weight: 800; margin-bottom: 0.5rem; font-size:1.05rem;">{icon} {title}</div>
+                        <div style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">{desc.strip()}</div>
+                    </div>
+            """
+            
+        html += """
+                </div>
+            </div>
+            
+            <div style="margin-top: 2rem;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom: 1.25rem;">
+                    <span style="font-size: 1.2rem;">💡</span><h4 style="color: #e2e8f0; margin: 0; font-size: 1.15rem;">실행 포인트 (권장 전략)</h4>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
+        """
+        
+        for i, pt in enumerate(data.get("points", [])):
+            parts = pt.split(':', 1)
+            title = parts[0]
+            desc = parts[1] if len(parts) > 1 else ""
+            html += f"""
+                <div style="background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 8px; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="color: #38bdf8; font-weight: 800; margin-bottom: 0.5rem; font-size: 1.05rem;">{title}</div>
+                    <div style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">{desc.strip()}</div>
+                </div>
+            """
+            
+        html += """
+                </div>
+            </div>
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+        
+        with st.expander("📄 [클릭] 주간 리포트 전문 보기"):
+            st.code(raw_text, language="markdown")
+
+    # 일간 예측 리포트 렌더링
+    st.markdown("#### ✨ 일간 AI 예측 브리프")
     daily_text, daily_info = _fetch_report_direct('prediction_report_20')
     if daily_text:
-        st.caption(f"파일: {daily_info}")
-        with st.container(border=True):
-            st.code(daily_text, language="markdown")
+        parsed_daily = parse_daily_report(daily_text)
+        render_daily_ui(parsed_daily, daily_text)
     else:
-        st.info("일간 예측 리포트가 없습니다. `32FA_daily_predict_report_v7E.ipynb`를 실행하면 생성됩니다.")
+        st.info("일간 예측 리포트가 없습니다. 파이프라인을 실행하면 생성됩니다.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
 
-    # 마켓 리포트
-    st.markdown("#### 📊 일간/주간 마켓 종합 분석 리포트")
+    # 마켓 리포트 렌더링
+    st.markdown("#### ✨ 주간 마켓 종합 애널리틱스")
     market_text, market_info = _fetch_report_direct('market_analysis_report_')
     if market_text:
-        st.caption(f"파일: {market_info}")
-        with st.container(border=True):
-            st.code(market_text, language="markdown")
+        parsed_weekly = parse_weekly_report(market_text)
+        render_weekly_ui(parsed_weekly, market_text)
     else:
-        st.info("마켓 리포트가 없습니다. 해당 노트북을 실행해주세요.")
+        st.info("마켓 리포트가 없습니다. 파이프라인을 실행해주세요.")
+
 
