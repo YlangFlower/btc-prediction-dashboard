@@ -540,69 +540,56 @@ with tab_news:
         recent_7d = df_news.head(7)
         avg_score = recent_7d['sentiment_score'].mean()
 
-        gc1, gc2 = st.columns([1, 2])
-        with gc1:
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=avg_score,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "주간 평균 감성 지표 (Sentiment)", 'font': {'color': '#c9d1d9'}},
-                gauge={
-                    'axis': {'range': [-1, 1], 'tickwidth': 1, 'tickcolor': "#c9d1d9"},
-                    'bar': {'color': "#f59e0b"},
-                    'bgcolor': "rgba(255,255,255,0.05)",
-                    'steps': [
-                        {'range': [-1, -0.3], 'color': "rgba(239, 68, 68, 0.4)"},
-                        {'range': [-0.3, 0.3], 'color': "rgba(148, 163, 184, 0.2)"},
-                        {'range': [0.3, 1.0], 'color': "rgba(34, 197, 94, 0.4)"}
-                    ],
-                }
-            ))
-            fig_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': "#c9d1d9"}, height=250)
-            st.plotly_chart(fig_gauge, use_container_width=True)
+        # 상단 게이지 박스 헤더
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
+                <div style="font-size: 1.25rem; font-weight: 800; color: #e2e8f0;">📊 주간 평균 감성 지표 (Sentiment)</div>
+                <div style="font-size: 1.5rem; font-weight: 900; color: {'#4ade80' if avg_score > 0 else '#f87171'};">{avg_score:.2f}</div>
+            </div>
+            <div style="color: #cbd5e1; font-size: 1.05rem; line-height: 1.6;">
+                {'<span style="color:#4ade80;">🟢 <strong>주간 모멘텀 긍정적:</strong></span> 기관 매수세, 호재성 뉴스가 가격 하락을 강하게 방어하고 있습니다.' if avg_score > 0.3 else '<span style="color:#f87171;">🔴 <strong>주간 모멘텀 부정적:</strong></span> 거시적 불안감 혹은 악재가 하방 압력을 높이고 있습니다.' if avg_score < -0.3 else '<span style="color:#94a3b8;">⚪ <strong>주간 모멘텀 중립적:</strong></span> 뚜렷한 재료 없이 기술적 지표에 의해 방향이 결정될 확률이 높습니다.'}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        with gc2:
-            st.markdown("#### 📌 딥러닝 입력 피처 기준 감성 평가")
-            if avg_score > 0.3:
-                st.success("🟢 **주간 모멘텀 긍정적:** 기관 매수세, 호재성 뉴스가 가격 하락을 강하게 방어하고 있습니다.")
-            elif avg_score < -0.3:
-                st.error("🔴 **주간 모멘텀 부정적:** 거시적 불안감 혹은 악재가 하방 압력을 높이고 있습니다.")
-            else:
-                st.info("⚪ **주간 모멘텀 중립적:** 뚜렷한 재료 없이 기술적 지표에 의해 방향이 결정될 확률이 높습니다.")
+        st.markdown("#### 🕒 최근 14일 헤드라인 분석 피드")
 
-        st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
-        st.markdown("#### 🕒 최근 14일 헤드라인 분석 내역")
-
+        html_feed = "<div style='display:flex; flex-direction:column; gap:1.25rem;'>"
         for idx, row in df_news.iterrows():
             date_str = row['date'].strftime("%Y-%m-%d")
             score = row.get('sentiment_score', 0)
             imp = row.get('impact_score', 0)
             head = row.get('headline_summary', '(API 로딩 실패 또는 빈 헤드라인)')
 
-            s_badge = "bull" if score > 0.3 else ("bear" if score < -0.3 else "neutral")
-            s_txt = f"감성: {score:.2f}"
-            # 임팩트 0.8 이상이면 형광 시안 강조
+            s_badge_color = "rgba(34, 197, 94, 0.15)" if score > 0.3 else ("rgba(239, 68, 68, 0.15)" if score < -0.3 else "rgba(148, 163, 184, 0.15)")
+            s_text_color = "#4ade80" if score > 0.3 else ("#f87171" if score < -0.3 else "#94a3b8")
+            s_border = "rgba(34,197,94,0.3)" if score > 0.3 else ("rgba(239,68,68,0.3)" if score < -0.3 else "rgba(148,163,184,0.3)")
+            s_icon = "🟢" if score > 0.3 else ("🔴" if score < -0.3 else "⚪")
+
             if imp >= 0.8:
-                imp_style = "background: rgba(34, 211, 238, 0.2); color: #22d3ee; border: 1px solid rgba(34,211,238,0.5); font-weight: 800;"
+                imp_style = "background: rgba(34, 211, 238, 0.2); color: #22d3ee; border: 1px solid rgba(34,211,238,0.5); box-shadow: 0 0 10px rgba(34,211,238,0.3);"
                 imp_icon = "🔥"
             else:
-                imp_style = "background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3);"
-                imp_icon = ""
+                imp_style = "background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2);"
+                imp_icon = "⚡"
 
-            with st.container(border=True):
-                col_h1, col_h2 = st.columns([1, 4])
-                with col_h1:
-                    st.markdown(
-                        f"<span style='color:#8b949e; font-size: 14px;'>{date_str}</span><br>"
-                        f"<span class='badge {s_badge}'>{s_txt}</span><br>"
-                        f"<span style='display:inline-block; padding: 4px 12px; border-radius: 16px; font-size: 13px; margin-bottom:4px; {imp_style}'>{imp_icon} 임팩트: {imp:.2f}</span>",
-                        unsafe_allow_html=True
-                    )
-
-                with col_h2:
-                    st.write(head)
+            html_feed += f"""
+            <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="background: {s_badge_color}; color: {s_text_color}; border: 1px solid {s_border}; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 700;">{s_icon} 감성 {score:.2f}</span>
+                        <span style="{imp_style} padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 800;">{imp_icon} 임팩트 {imp:.2f}</span>
+                    </div>
+                    <span style="color: #64748b; font-size: 13px; font-weight: 500;">{date_str}</span>
+                </div>
+                <div style="color: #e2e8f0; font-size: 1.1rem; font-weight: 500; line-height: 1.5;">{head}</div>
+            </div>
+            """
+        html_feed += "</div>"
+        st.markdown(html_feed, unsafe_allow_html=True)
     else:
-        st.write("최근 뉴스 감성 데이터가 존재하지 않습니다.")
+        st.info("최근 뉴스 감성 데이터가 존재하지 않습니다.")
 
 # ==============================================================================
 # 탭 3: 퀀트 모델 차트 (리디자인)
@@ -777,14 +764,29 @@ with tab_report:
                     summary += lines[i].strip() + " "
             data["summary"] = summary.strip()
         except: pass
-        # Extract models
+        # Extract models (Handle line breaks in model names like PatchTST)
+        current_model = None
         for i, line in enumerate(lines):
             if line.startswith("①") or line.startswith("②") or line.startswith("③"):
-                parts = line.split('-')
+                if current_model:
+                    data["models"].append(current_model)
+                parts = line.split('-', 1)
                 name = parts[0].strip('①②③ ')
-                val = '-'.join(parts[1:]).strip() if len(parts)>1 else ""
-                desc = lines[i+1].replace('→', '').strip() if i+1 < len(lines) and "→" in lines[i+1] else ""
-                data["models"].append({"name": name, "val": val, "desc": desc})
+                val_and_desc = parts[1].strip() if len(parts)>1 else ""
+                current_model = {"name": name, "val": val_and_desc, "desc": ""}
+            elif current_model:
+                if "→" in line:
+                    current_model["desc"] = line.replace('→', '').strip()
+                elif line.strip() and not line.startswith("━"):
+                    # Append to value if it's a broken line
+                    current_model["val"] += " " + line.strip()
+                elif line.startswith("━"):
+                    data["models"].append(current_model)
+                    current_model = None
+
+        if current_model:
+            data["models"].append(current_model)
+            
         return data
 
     def render_daily_ui(data, raw_text):
@@ -858,16 +860,19 @@ with tab_report:
                 parts = [p.strip() for p in line.split("│")]
                 if len(parts) >= 3:
                     k, v = parts[1], parts[2]
-                    if "신뢰도" in k: data["risk"]["daily"] = v
-                    if "변동성" in k: data["risk"]["weekly"] = v
-                    if "합의" in k: data["risk"]["model"] = v
-                    if "리스크" in k: data["risk"]["total"] = v
+                    v_clean = re.sub(r'<[^>]+>', '', v) # Strip HTML
+                    if "신뢰도" in k: data["risk"]["daily"] = v_clean
+                    if "변동성" in k: data["risk"]["weekly"] = v_clean
+                    if "합의" in k: data["risk"]["model"] = v_clean
+                    if "리스크" in k: data["risk"]["total"] = v_clean
                     
             if line.startswith("▶"):
-                data["scenario"].append(line.replace("▶", "").strip())
+                clean_scen = re.sub(r'<[^>]+>', '', line.replace("▶", "")).strip()
+                data["scenario"].append(clean_scen)
                 
             if line.startswith("①") or line.startswith("②") or line.startswith("③") or line.startswith("④"):
-                data["points"].append(line.strip())
+                clean_point = re.sub(r'<[^>]+>', '', line).strip()
+                data["points"].append(clean_point)
                 
         return data
 
