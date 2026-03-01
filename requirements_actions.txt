@@ -1,0 +1,36 @@
+# GitHub Actions 전용 requirements
+# 로컬/Colab 환경이 아닌 GitHub Actions 런너에서 사용
+
+# Core
+pandas
+numpy
+python-dotenv
+requests
+
+# Supabase
+supabase
+
+# ML / DL
+catboost
+xgboost
+scikit-learn
+torch
+einops
+joblib
+
+# Finance / Data crawling
+yfinance
+fredapi
+ccxt
+ta
+pyupbit
+
+# Sentiment / AI
+openai
+langchain-core
+langchain-openai
+pygooglenews
+tqdm
+
+# Visualization / Report
+matplotlib

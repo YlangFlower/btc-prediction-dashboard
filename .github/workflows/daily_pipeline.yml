@@ -1,0 +1,56 @@
+name: "📈 Daily BTC Prediction Pipeline"
+
+on:
+  # 매일 한국 시간 오전 1시 (UTC 16:00 전날) 자동 실행
+  schedule:
+    - cron: "0 16 * * *"
+  # 수동 실행 허용
+  workflow_dispatch:
+
+jobs:
+  daily-pipeline:
+    name: "Run Daily Pipeline"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 최대 2시간
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      GITHUB_ACTIONS: "true"
+
+    steps:
+      - name: "📥 코드 체크아웃"
+        uses: actions/checkout@v4
+
+      - name: "🐍 Python 3.10 설정"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+          cache-dependency-path: "requirements_actions.txt"
+
+      - name: "📦 패키지 설치"
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements_actions.txt
+
+      # ─────────────────────────────────────────────
+      # Step 1: 데이터 크롤링 및 DB 저장
+      # ─────────────────────────────────────────────
+      - name: "🕷️ Step 1 - 데이터 크롤링 (29_COMPLETE_PIPELINE)"
+        run: python pipeline_01_crawl.py
+
+      # ─────────────────────────────────────────────
+      # Step 2: 일간 AI 예측 (모델 가중치 자동 다운로드 포함)
+      # ─────────────────────────────────────────────
+      - name: "🤖 Step 2 - 일간 예측 (31FH_daily_predict_v7E)"
+        run: python pipeline_02_predict.py
+
+      # ─────────────────────────────────────────────
+      # Step 3: 일간 레포트 생성 및 저장
+      # ─────────────────────────────────────────────
+      - name: "📊 Step 3 - 일간 레포트 생성 (32FA_daily_report)"
+        run: python pipeline_03_report.py
