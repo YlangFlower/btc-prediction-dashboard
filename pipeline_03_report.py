@@ -1154,7 +1154,7 @@ import requests as _req_upload
 try:
     from google.colab import userdata
     IS_COLAB = True
-except ImportErrors:
+except ImportError:
     IS_COLAB = False
 
 # ============================================================
