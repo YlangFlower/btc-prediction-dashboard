@@ -35,17 +35,23 @@ st.markdown("""
         font-size: 2.8rem;
         padding-bottom: 10px;
     }
+    div[data-testid="stColumn"] > div {
+        height: 100%;
+    }
     div[data-testid="stVerticalBlockBorderWrapper"] {
+        height: 100%;
         border-radius: 16px !important;
-        background: rgba(22, 27, 34, 0.4) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(30, 41, 59, 0.7) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         padding: 0.5rem !important;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:hover {
         transform: translateY(-5px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
         border-color: rgba(96, 165, 250, 0.5) !important;
     }
     .glass-card {
@@ -329,7 +335,6 @@ with tab_main:
 
     with c1:
         with st.container(border=True, key="c1_box"):
-            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 🎯 1d 메인 모델 (dynH)")
             pred_data = data["prediction"]
 
@@ -380,12 +385,10 @@ with tab_main:
                     st.caption(f"예측 기준일: {pred_data.get('date', 'N/A')[:16].replace('T', ' ')}")
             else:
                 st.warning("예측 데이터를 불러오고 있습니다...")
-            st.markdown("</div>", unsafe_allow_html=True)
 
     # ── ④ +7d 변동성 전망 — weekly_predictions 테이블 기반 ─────────────────────
     with c2:
         with st.container(border=True, key="c2_box"):
-            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 🌪️ +7d 시장 변동성 전망")
             wp = data.get("weekly_prediction", {})
 
@@ -437,11 +440,9 @@ with tab_main:
             else:
                 st.markdown("<span class='badge neutral'>주간 예측 데이터 없음</span>", unsafe_allow_html=True)
                 st.caption("weekly_predictions 테이블에 데이터가 없거나 연결 실패")
-            st.markdown("</div>", unsafe_allow_html=True)
 
     with c3:
         with st.container(border=True, key="c3_box"):
-            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 💹 핵심 마켓 데이터")
             m_data = data["market"][0] if data["market"] else {}
             if m_data:
@@ -456,11 +457,9 @@ with tab_main:
                 st.caption(f"Update: {m_data.get('timestamp', '')[:16]}")
             else:
                 st.write("마켓 데이터 수신 대기 중...")
-            st.markdown("</div>", unsafe_allow_html=True)
 
     with c4:
         with st.container(border=True, key="c4_box"):
-            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 🎯 30일 타율 & 최근 기록")
             
             acc = data["acc_30d"]
@@ -496,17 +495,17 @@ with tab_main:
                     dir_color = "#4ade80" if dir_icon == "📈" else "#f87171" if dir_icon == "📉" else "#94a3b8"
                     
                     feed_html += f"""
-                    <div style="background: rgba(255,255,255,0.02); padding: 0.75rem 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
-                        <div>
-                            <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px;">{dt} 예측</div>
-                            <div style="font-size: 0.95rem; font-weight: 800; color: {dir_color};">{dir_val} {dir_icon}</div>
-                        </div>
-                        <div style="text-align: right; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-                            {badge}
-                            <div style="font-size: 0.7rem; color: #64748b;">신뢰도 {conf:.1f}%</div>
-                        </div>
-                    </div>
-                    """
+<div style="background: rgba(255,255,255,0.02); padding: 0.75rem 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+    <div>
+        <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px;">{dt} 예측</div>
+        <div style="font-size: 0.95rem; font-weight: 800; color: {dir_color};">{dir_val} {dir_icon}</div>
+    </div>
+    <div style="text-align: right; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        {badge}
+        <div style="font-size: 0.7rem; color: #64748b;">신뢰도 {conf:.1f}%</div>
+    </div>
+</div>
+"""
                 feed_html += "</div>"
                 
                 # Custom scrollbar style inline
@@ -518,11 +517,9 @@ with tab_main:
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
                 </style>
                 """
-                st.markdown(feed_html, unsafe_allow_html=True)
+                st.markdown(clean_html(feed_html), unsafe_allow_html=True)
             else:
                 st.caption("최근 기록이 아직 수집되지 않았습니다.")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
 
     # ── ②③ 종합 기술적 분석 — 인터랙티브 지표 선택 + 30일 그래프 ──────────────
     st.markdown("#### 📊 종합 기술적 분석")
@@ -904,72 +901,76 @@ with tab_report:
                     summary += lines[i].strip() + " "
             data["summary"] = summary.strip()
         except: pass
-        # Extract models (Handle line breaks in model names like PatchTST)
+        
+        # Extract models
         current_model = None
-        for i, line in enumerate(lines):
+        for line in lines:
             line_clean = line.strip()
-            # If line is part of a previous model's name that got broken
-            if current_model and not (line_clean.startswith("①") or line_clean.startswith("②") or line_clean.startswith("③") or line_clean.startswith("━")):
-                if "→" in line_clean or "상승" in line_clean or "하락" in line_clean or "중립" in line_clean:
-                     pass # handled below
-                elif not current_model["val"] and not current_model["desc"] and "(" in line_clean and ")" in line_clean:
-                    # Broken name piece (like "Fold 앙상블)")
-                    current_model["name"] += " " + line_clean
-                    continue
-
             if line_clean.startswith("①") or line_clean.startswith("②") or line_clean.startswith("③"):
                 if current_model:
                     data["models"].append(current_model)
-                parts = line_clean.split('-', 1)
-                name = parts[0].strip('①②③ ')
-                val_and_desc = parts[1].strip() if len(parts)>1 else ""
-                current_model = {"name": name, "val": val_and_desc, "desc": ""}
+                name = line_clean.split('-', 1)[0].replace('①','').replace('②','').replace('③','').strip()
+                current_model = {"name": name, "raw_lines": []}
+                if '-' in line_clean:
+                    current_model["raw_lines"].append(line_clean.split('-', 1)[1].strip())
             elif current_model:
-                if "→" in line_clean:
-                    parts = line_clean.split('→')
-                    pct_str = parts[0].replace("-", "").strip()
-                    v = parts[-1].strip()
-                    if "⑥" in v:
-                        v = v.split("⑥")[0].strip()
-                    
-                    if "상승" in v: dir_txt = f"{pct_str} 📈 {v}"
-                    elif "하락" in v: dir_txt = f"{pct_str} 📉 {v}"
-                    else: dir_txt = f"{pct_str} ➖ {v}"
-                    
-                    current_model["val"] = dir_txt
-                elif line_clean and not line_clean.startswith("━"):
-                    if not current_model["val"] and ("상승" in line_clean or "하락" in line_clean or "중립" in line_clean):
-                         current_model["val"] = line_clean
-                    else:
-                        current_model["desc"] += " " + line_clean
-                elif line_clean.startswith("━"):
+                if line_clean.startswith("━"):
                     data["models"].append(current_model)
                     current_model = None
-
+                elif line_clean:
+                    current_model["raw_lines"].append(line_clean)
         if current_model:
             data["models"].append(current_model)
             
-        # Clean up model names and values post-extraction
+        # Post-process models
         for m in data["models"]:
-            # Clean up line breaks and weird formatting in name
+            # Name cleanup
             m["name"] = m["name"].replace('\n', ' ').strip()
             if "(Kaggle 전체 학습)" in m["name"]:
                 m["name"] = m["name"].replace("(Kaggle 전체 학습)", "").strip()
-            
+            if "Fold 앙상블" in m["name"]:
+                m["name"] = m["name"].replace("(5 Fold 앙상블)", "").replace("(5", "").replace("Fold 앙상블)", "").replace(")", "").strip()
+                
             # Add roles
             if "PatchTST" in m["name"] and "장기" not in m["name"]:
-                m["name"] = f"PatchTST <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(장기 패턴 분배)</span>"
-            elif "CNN" in m["name"] and "LSTM" in m["name"]:
-                m["name"] = f"CNN-LSTM <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(단기 신호 포착)</span>"
+                m["name"] = f"PatchTST <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(장기 패턴 학습)</span>"
+            elif "CNN" in m["name"] and ("단기" not in m["name"]):
+                m["name"] = f"CNN-LSTM <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(단기 패턴 학습)</span>"
             elif "CatBoost" in m["name"]:
-                m["name"] = f"CatBoost <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(기술적 추세)</span>"
+                m["name"] = f"CatBoost <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(기술적 추세 학습)</span>"
             
-            # Add fallback icons to values without them
-            v = m["val"]
-            if "📈" not in v and "📉" not in v and "➖" not in v:
-                if "상승" in v: m["val"] = f"{v} 📈"
-                elif "하락" in v: m["val"] = f"{v} 📉"
-                else: m["val"] = f"{v} ➖"
+            # Process lines
+            raw_text = " ".join(m["raw_lines"])
+            
+            # Find %
+            pct_m = re.search(r"(\d+(?:\.\d+)?)%", raw_text)
+            pct = pct_m.group(0) if pct_m else ""
+            
+            # Find direction
+            dir_val = "중립 ➖"
+            if "상승" in raw_text: dir_val = "상승 📈"
+            elif "하락" in raw_text: dir_val = "하락 📉"
+            
+            m["val"] = f"{pct} {dir_val}".strip()
+            
+            # Extract desc (filter out noise, percentages, arrows, direction words)
+            desc_lines = []
+            for rl in m["raw_lines"]:
+                # skip lines that are just numbers or arrows
+                rl = re.sub(r"⑥\s*Final.*", "", rl) # Remove ⑥ Final = ...
+                rl = rl.replace('→', '').replace('📈', '').replace('📉', '').replace('➖', '')
+                if pct:
+                    rl = rl.replace(pct, "").replace("-", "").strip()
+                
+                rl_clean = rl.replace("상승", "").replace("하락", "").replace("중립", "").replace("예측", "").strip()
+                
+                if len(rl_clean) > 2: # Has actual content
+                    desc_lines.append(rl.strip(' -,'))
+            
+            desc_text = " ".join([dl for dl in desc_lines if dl]).strip()
+            if desc_text.startswith("-"): desc_text = desc_text[1:].strip()
+            
+            m["desc"] = desc_text
             
         return data
 
