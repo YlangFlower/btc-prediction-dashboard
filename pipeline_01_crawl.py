@@ -15,11 +15,19 @@
 # ## 📦 1. 환경 설정 및 라이브러리 설치
 
 # Google Drive 마운트
-from google.colab import drive
-import os
+import sys, os
+_IS_COLAB_EARLY = 'google.colab' in sys.modules or ('google' in sys.modules and hasattr(sys.modules.get('google', None), 'colab'))
+if not _IS_COLAB_EARLY:
+    try:
+        import importlib.util
+        _IS_COLAB_EARLY = importlib.util.find_spec('google.colab') is not None and 'COLAB_RELEASE_TAG' in os.environ
+    except Exception:
+        pass
 
-drive.mount('/content/drive')
-print("✅ Google Drive 마운트 완료")
+if _IS_COLAB_EARLY:
+    from google.colab import drive
+    drive.mount('/content/drive')
+    print("✅ Google Drive 마운트 완료")
 
 # 필수 라이브러리 설치
 
