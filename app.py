@@ -40,17 +40,40 @@ st.markdown("""
         background: rgba(22, 27, 34, 0.4) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         padding: 0.5rem !important;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        border-color: rgba(96, 165, 250, 0.5) !important;
+    }
+    .glass-card {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        padding: 1.5rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+        border-color: rgba(96, 165, 250, 0.5);
     }
     .badge {
         display: inline-block; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 700; margin-bottom: 8px; margin-right: 8px;
+        box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 2px 4px rgba(0,0,0,0.2);
     }
-    .badge.bull { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-    .badge.bear { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-    .badge.neutral { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
-    .highlight-val { font-size: 2rem; font-weight: 800; margin: 0; padding: 0; }
+    .badge.bull { background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.1)); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
+    .badge.bear { background: linear-gradient(135deg, rgba(239,68,68,0.2), rgba(239,68,68,0.1)); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+    .badge.neutral { background: linear-gradient(135deg, rgba(148,163,184,0.2), rgba(148,163,184,0.1)); color: #94a3b8; border: 1px solid rgba(148,163,184,0.4); }
+    .highlight-val { font-size: 2rem; font-weight: 800; margin: 0; padding: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     .pred-up { color: #4ade80; }
     .pred-down { color: #f87171; }
-    div[data-testid="stMetricValue"] { font-size: 1.8rem !important; font-weight: 800 !important; }
+    div[data-testid="stMetricValue"] { font-size: 1.8rem !important; font-weight: 800 !important; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -115,11 +138,12 @@ def fetch_all_data():
         if res_p.data:
             out["prediction"] = res_p.data[0]
 
-        # 5. 30d Accuracy
-        res_acc = supabase.table('predictions').select('is_correct').gte('date', thirty_days_ago).not_.is_('is_correct', 'null').execute()
+        # 5. 30d Accuracy & History
+        res_acc = supabase.table('predictions').select('date, direction, is_correct, confidence_score').gte('date', thirty_days_ago).not_.is_('is_correct', 'null').order('date', desc=True).execute()
         if res_acc.data:
             out["acc_30d"]["total"] = len(res_acc.data)
             out["acc_30d"]["correct"] = sum(1 for r in res_acc.data if r.get('is_correct'))
+            out["acc_30d"]["history"] = res_acc.data
 
         # 6. Weekly Prediction (Latest)
         res_w = supabase.table('weekly_predictions').select('*').order('prediction_week_start', desc=True).limit(1).execute()
@@ -300,11 +324,12 @@ with tab_main:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── 상단 3단 요약 카드 ──────────────────────────────────────────────────────
-    c1, c2, c3 = st.columns([1.2, 1, 1])
+    # ── 상단 4단 요약 카드 ──────────────────────────────────────────────────────
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 1.1])
 
     with c1:
-        with st.container(border=True):
+        with st.container(border=True, key="c1_box"):
+            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 🎯 1d 메인 모델 (dynH)")
             pred_data = data["prediction"]
 
@@ -355,10 +380,12 @@ with tab_main:
                     st.caption(f"예측 기준일: {pred_data.get('date', 'N/A')[:16].replace('T', ' ')}")
             else:
                 st.warning("예측 데이터를 불러오고 있습니다...")
+            st.markdown("</div>", unsafe_allow_html=True)
 
     # ── ④ +7d 변동성 전망 — weekly_predictions 테이블 기반 ─────────────────────
     with c2:
-        with st.container(border=True):
+        with st.container(border=True, key="c2_box"):
+            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 🌪️ +7d 시장 변동성 전망")
             wp = data.get("weekly_prediction", {})
 
@@ -410,13 +437,11 @@ with tab_main:
             else:
                 st.markdown("<span class='badge neutral'>주간 예측 데이터 없음</span>", unsafe_allow_html=True)
                 st.caption("weekly_predictions 테이블에 데이터가 없거나 연결 실패")
-
-            acc = data["acc_30d"]
-            acc_pct = (acc["correct"]/acc["total"]*100) if acc["total"] > 0 else 0
-            st.markdown(f"<div style='margin-top: 5px; color:#8b949e;'>최근 30일 적중률: <strong style='color:#fff'>{acc_pct:.1f}%</strong> ({acc['correct']}/{acc['total']})</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     with c3:
-        with st.container(border=True):
+        with st.container(border=True, key="c3_box"):
+            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
             st.markdown("#### 💹 핵심 마켓 데이터")
             m_data = data["market"][0] if data["market"] else {}
             if m_data:
@@ -431,6 +456,73 @@ with tab_main:
                 st.caption(f"Update: {m_data.get('timestamp', '')[:16]}")
             else:
                 st.write("마켓 데이터 수신 대기 중...")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    with c4:
+        with st.container(border=True, key="c4_box"):
+            st.markdown("<div class='glass-card' style='height: 100%;'>", unsafe_allow_html=True)
+            st.markdown("#### 🎯 30일 타율 & 최근 기록")
+            
+            acc = data["acc_30d"]
+            acc_pct = (acc["correct"]/acc["total"]*100) if acc["total"] > 0 else 0
+            
+            st.markdown(f"""
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 12px; text-align: center; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);">
+                <div style="font-size: 0.9rem; color: #94a3b8; font-weight: 600;">최근 30일 AI 예측 타율</div>
+                <div style="font-size: 2.5rem; font-weight: 900; color: #4ade80; text-shadow: 0 0 10px rgba(74,222,128,0.4);">{acc_pct:.1f}%</div>
+                <div style="font-size: 0.85rem; color: #64748b;">✅ {acc['correct']} 성공 / {acc['total']} 전체</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<div style='font-size: 0.95rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.8rem; padding-bottom: 0.3rem; border-bottom: 1px solid rgba(255,255,255,0.1);'>🗓️ 최근 예측 vs 실제 결과</div>", unsafe_allow_html=True)
+            
+            history = acc.get("history", [])
+            if history:
+                feed_html = "<div style='max-height: 220px; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 8px;' class='custom-scrollbar'>"
+                for row in history[:15]: # Show up to 15 recent predictions
+                    dt = row.get("date", "")[:10]
+                    dir_val = row.get("direction", "")
+                    is_correct = row.get("is_correct")
+                    conf = row.get("confidence_score", 0) * 100
+                    
+                    if is_correct is True:
+                        badge = "<span style='color: #22c55e; background: rgba(34,197,94,0.15); padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight:bold; border: 1px solid rgba(34,197,94,0.4); box-shadow: 0 0 5px rgba(34,197,94,0.2);'>적중 ✅</span>"
+                    elif is_correct is False:
+                        badge = "<span style='color: #ef4444; background: rgba(239,68,68,0.15); padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight:bold; border: 1px solid rgba(239,68,68,0.4); box-shadow: 0 0 5px rgba(239,68,68,0.2);'>실패 ❌</span>"
+                    else:
+                        badge = "<span style='color: #94a3b8; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(255,255,255,0.1);'>결과 대기</span>"
+                        
+                    dir_icon = "📈" if dir_val in ["상승", "UP", "상승장", 1] else "📉" if dir_val in ["하락", "DOWN", "하락장", 0] else "➖"
+                    dir_color = "#4ade80" if dir_icon == "📈" else "#f87171" if dir_icon == "📉" else "#94a3b8"
+                    
+                    feed_html += f"""
+                    <div style="background: rgba(255,255,255,0.02); padding: 0.75rem 1rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                        <div>
+                            <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 2px;">{dt} 예측</div>
+                            <div style="font-size: 0.95rem; font-weight: 800; color: {dir_color};">{dir_val} {dir_icon}</div>
+                        </div>
+                        <div style="text-align: right; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                            {badge}
+                            <div style="font-size: 0.7rem; color: #64748b;">신뢰도 {conf:.1f}%</div>
+                        </div>
+                    </div>
+                    """
+                feed_html += "</div>"
+                
+                # Custom scrollbar style inline
+                feed_html += """
+                <style>
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+                </style>
+                """
+                st.markdown(feed_html, unsafe_allow_html=True)
+            else:
+                st.caption("최근 기록이 아직 수집되지 않았습니다.")
+            
+            st.markdown("</div>", unsafe_allow_html=True)
 
     # ── ②③ 종합 기술적 분석 — 인터랙티브 지표 선택 + 30일 그래프 ──────────────
     st.markdown("#### 📊 종합 기술적 분석")
@@ -581,7 +673,7 @@ with tab_news:
                 100% {{ transform: translateX(100%); }}
             }}
         </style>
-        <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
+        <div class="glass-card" style="margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                 <div style="font-size: 1.25rem; font-weight: 800; color: #e2e8f0;">📊 주간 평균 감성 지표 (Sentiment)</div>
                 <div style="font-size: 1.5rem; font-weight: 900; color: {gauge_color};">{avg_score:.2f}</div>
@@ -630,7 +722,7 @@ with tab_news:
                 imp_icon = "⚡"
 
             html_feed += f"""
-            <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 1.5rem; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div class="glass-card" style="padding: 1.5rem; margin-bottom: 0.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <span style="background: {s_badge_color}; color: {s_text_color}; border: 1px solid {s_border}; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 700;">{s_icon} 감성 {score:.2f}</span>
@@ -727,14 +819,7 @@ with tab_charts:
         any_found = True
         with cols[i % 2]:
             st.markdown(f"""
-            <div style="
-                border: 1px solid {meta['border']};
-                border-radius: 16px;
-                padding: 1.25rem 1.25rem 0.75rem;
-                margin-bottom: 1.25rem;
-                background: rgba(22,27,34,0.6);
-                backdrop-filter: blur(8px);
-            ">
+            <div class="glass-card" style="border-color: {meta['border']}; margin-bottom: 1.25rem;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.5rem;">
                     <span style="font-size:1.1rem; font-weight:700; color:#e2e8f0;">{meta['title']}</span>
                     <span style="
@@ -841,12 +926,17 @@ with tab_report:
                 current_model = {"name": name, "val": val_and_desc, "desc": ""}
             elif current_model:
                 if "→" in line_clean:
-                    # e.g., "70% → 강한 상승" -> "강한 상승"
-                    v = line_clean.split('→')[-1].strip()
-                    # Remove "⑥ Final = xxxx" noise if present
+                    parts = line_clean.split('→')
+                    pct_str = parts[0].replace("-", "").strip()
+                    v = parts[-1].strip()
                     if "⑥" in v:
                         v = v.split("⑥")[0].strip()
-                    current_model["val"] = v
+                    
+                    if "상승" in v: dir_txt = f"{pct_str} 📈 {v}"
+                    elif "하락" in v: dir_txt = f"{pct_str} 📉 {v}"
+                    else: dir_txt = f"{pct_str} ➖ {v}"
+                    
+                    current_model["val"] = dir_txt
                 elif line_clean and not line_clean.startswith("━"):
                     if not current_model["val"] and ("상승" in line_clean or "하락" in line_clean or "중립" in line_clean):
                          current_model["val"] = line_clean
@@ -874,11 +964,12 @@ with tab_report:
             elif "CatBoost" in m["name"]:
                 m["name"] = f"CatBoost <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(기술적 추세)</span>"
             
-            # Clean up values (extract just direction)
+            # Add fallback icons to values without them
             v = m["val"]
-            if "상승" in v: m["val"] = "상승 📈"
-            elif "하락" in v: m["val"] = "하락 📉"
-            else: m["val"] = "중립 ➖"
+            if "📈" not in v and "📉" not in v and "➖" not in v:
+                if "상승" in v: m["val"] = f"{v} 📈"
+                elif "하락" in v: m["val"] = f"{v} 📉"
+                else: m["val"] = f"{v} ➖"
             
         return data
 
@@ -894,7 +985,7 @@ with tab_report:
         icon = "🚀" if is_up else "🛡️"
         
         html = f"""
-<div style="background: {bg_color}; border: 1px solid {border_color}; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+<div class="glass-card" style="background: {bg_color}; border-color: {border_color}; margin-bottom: 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
         <div>
             <span style="font-size: 14px; color: #94a3b8;">분석 시점: {data['date']}</span>
@@ -919,7 +1010,7 @@ with tab_report:
                 m_color = "#4ade80" if "상승" in m_val else "#f87171" if "하락" in m_val else "#94a3b8"
                 with cols[i]:
                     st.markdown(clean_html(f"""
-                    <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div class="glass-card" style="padding: 1.25rem; height: 100%;">
                         <div style="font-weight: 800; color: #e2e8f0; margin-bottom: 0.5rem; font-size: 1.15rem;">{m['name']}</div>
                         <div style="color: {m_color}; font-weight: 800; margin-bottom: 0.75rem; font-size: 1.05rem;">{m['val']}</div>
                         <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.5;">{m['desc'].strip()}</div>
