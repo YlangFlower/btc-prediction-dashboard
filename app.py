@@ -906,19 +906,20 @@ with tab_report:
         current_model = None
         for line in lines:
             line_clean = line.strip()
-            if line_clean.startswith("①") or line_clean.startswith("②") or line_clean.startswith("③"):
+            if line_clean.startswith("④") or line_clean.startswith("⑤") or line_clean.startswith("⑥") or line_clean.startswith("━"):
+                if current_model:
+                    data["models"].append(current_model)
+                    current_model = None
+            elif line_clean.startswith("①") or line_clean.startswith("②") or line_clean.startswith("③"):
                 if current_model:
                     data["models"].append(current_model)
                 name = line_clean.split('-', 1)[0].replace('①','').replace('②','').replace('③','').strip()
                 current_model = {"name": name, "raw_lines": []}
                 if '-' in line_clean:
                     current_model["raw_lines"].append(line_clean.split('-', 1)[1].strip())
-            elif current_model:
-                if line_clean.startswith("━"):
-                    data["models"].append(current_model)
-                    current_model = None
-                elif line_clean:
-                    current_model["raw_lines"].append(line_clean)
+            elif current_model and line_clean:
+                current_model["raw_lines"].append(line_clean)
+                
         if current_model:
             data["models"].append(current_model)
             
@@ -932,10 +933,10 @@ with tab_report:
                 m["name"] = m["name"].replace("(5 Fold 앙상블)", "").replace("(5", "").replace("Fold 앙상블)", "").replace(")", "").strip()
                 
             # Add roles
-            if "PatchTST" in m["name"] and "장기" not in m["name"]:
+            if "PatchTST" in m["name"]:
                 m["name"] = f"PatchTST <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(장기 패턴 학습)</span>"
-            elif "CNN" in m["name"] and ("단기" not in m["name"]):
-                m["name"] = f"CNN-LSTM <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(단기 패턴 학습)</span>"
+            elif "CNN" in m["name"]:
+                m["name"] = f"CNN <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(단기 패턴 학습)</span>"
             elif "CatBoost" in m["name"]:
                 m["name"] = f"CatBoost <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(기술적 추세 학습)</span>"
             
@@ -957,7 +958,6 @@ with tab_report:
             desc_lines = []
             for rl in m["raw_lines"]:
                 # skip lines that are just numbers or arrows
-                rl = re.sub(r"⑥\s*Final.*", "", rl) # Remove ⑥ Final = ...
                 rl = rl.replace('→', '').replace('📈', '').replace('📉', '').replace('➖', '')
                 if pct:
                     rl = rl.replace(pct, "").replace("-", "").strip()
@@ -1184,7 +1184,7 @@ with tab_report:
 
     # 일간 예측 리포트 렌더링
     st.markdown("#### ✨ 일간 AI 예측 브리프")
-    daily_text, daily_info = _fetch_report_direct('prediction_report_20')
+    daily_text, daily_info = _fetch_report_direct('prediction_report_')
     if daily_text:
         parsed_daily = parse_daily_report(daily_text)
         render_daily_ui(parsed_daily, daily_text)
