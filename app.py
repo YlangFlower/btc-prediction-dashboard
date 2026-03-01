@@ -841,13 +841,25 @@ with tab_report:
         with st.expander("📄 [클릭] 일간 리포트 전문 보기"):
             st.code(raw_text, language="markdown")
 
-    def parse_weekly_report(text):
+    def parse_weekly_report(text, weekly_db_data=None):
         data = { "date": "N/A", "period": "N/A", "summary": "", "risk": {}, "scenario": [], "points": [] }
         lines = text.split('\n')
         
+        # 날짜(period)를 텍스트 파싱 대신, 확실한 DB 데이터를 기준으로 생성합니다.
+        if weekly_db_data and weekly_db_data.get("prediction_week_start"):
+            try:
+                # DB의 prediction_week_start (예: "2026-03-02")
+                start_str = str(weekly_db_data["prediction_week_start"])
+                # "YYYY-MM-DD" 포맷이라고 가정
+                start_date = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
+                end_date = start_date + timedelta(days=6)
+                data["period"] = f"{start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}"
+            except Exception as e:
+                pass
+
         for line in lines:
             line = line.strip()
-            # Date Parsing
+            # Date Parsing (작성일 / 분석일 등)
             if "리포트 작성일:" in line:
                 data["date"] = line.split("리포트 작성일:")[-1].strip()
             elif "분석일:" in line:
@@ -855,13 +867,14 @@ with tab_report:
             elif "분석 기준일:" in line:
                 data["date"] = line.split("분석 기준일:")[-1].strip()
             
-            # Period Parsing
-            if "이번 주 예측 기간:" in line:
-                data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
-            elif "앞으로 7일:" in line:
-                data["period"] = line.split("앞으로 7일:")[-1].strip()
-            elif "예측 기간:" in line:
-                data["period"] = line.split("예측 기간:")[-1].strip()
+            # Period Parsing 백업 (DB 데이터가 없을 경우에만 텍스트 파싱 시도)
+            if data["period"] == "N/A":
+                if "이번 주 예측 기간:" in line:
+                    data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
+                elif "앞으로 7일:" in line:
+                    data["period"] = line.split("앞으로 7일:")[-1].strip()
+                elif "예측 기간:" in line:
+                    data["period"] = line.split("예측 기간:")[-1].strip()
         try:
             idx = lines.index("📌 한줄 요약")
             summary = ""
@@ -1003,7 +1016,9 @@ with tab_report:
     st.markdown("#### ✨ 주간 마켓 종합 애널리틱스")
     market_text, market_info = _fetch_report_direct('market_analysis_report_')
     if market_text:
-        parsed_weekly = parse_weekly_report(market_text)
+        # DB에서 가져온 weekly_prediction 데이터를 넘겨주어 정확한 날짜 연산 보장
+        weekly_db = data.get("weekly_prediction", {})
+        parsed_weekly = parse_weekly_report(market_text, weekly_db)
         render_weekly_ui(parsed_weekly, market_text)
     else:
         st.info("마켓 리포트가 없습니다. 파이프라인을 실행해주세요.")
