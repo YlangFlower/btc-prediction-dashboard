@@ -177,7 +177,7 @@ def _load_text_from_storage(supabase_url, supabase_key, prefix: str):
         }
         list_url = f"{supabase_url}/storage/v1/object/list/{CHARTS_BUCKET}"
         resp = _req.post(list_url, headers=headers,
-                         json={"prefix": prefix, "sortBy": {"column": "name", "order": "desc"}},
+                         json={"prefix": prefix, "sortBy": {"column": "created_at", "order": "desc"}},
                          timeout=10)
         if resp.ok:
             files = resp.json()
@@ -858,7 +858,7 @@ with tab_report:
             }
             list_url = f"{SUPABASE_URL}/storage/v1/object/list/{CHARTS_BUCKET}"
             r = _rq.post(list_url, headers=headers,
-                         json={"prefix": "", "sortBy": {"column": "name", "order": "desc"}},
+                         json={"prefix": "", "sortBy": {"column": "created_at", "order": "desc"}},
                          timeout=10)
             if not r.ok:
                 return None, "데이터 로딩 실패"
@@ -868,7 +868,7 @@ with tab_report:
             matching = [f for f in all_files if isinstance(f, dict) and f.get('name', '').startswith(prefix)]
             if not matching:
                 return None, "파일 없음"
-            fname = sorted(matching, key=lambda x: x['name'])[-1]['name']
+            fname = sorted(matching, key=lambda x: x.get('created_at', ''))[-1]['name']
             file_url = f"{SUPABASE_URL}/storage/v1/object/public/{CHARTS_BUCKET}/{fname}"
             fr = _rq.get(file_url, timeout=15)
             if not fr.ok:
@@ -974,10 +974,17 @@ with tab_report:
             
         return data
 
-    def render_daily_ui(data, raw_text):
+    def render_daily_ui(data, raw_text, latest_pred=None):
         if not data or data["direction"] == "N/A":
             st.code(raw_text, language="markdown")
             return
+            
+        if latest_pred and latest_pred.get('date') and data.get('date', 'N/A') != 'N/A':
+            pred_dt = latest_pred['date'][:10]
+            pred_dt_kr = f"{pred_dt[:4]}년 {pred_dt[5:7]}월 {pred_dt[8:10]}일"
+            
+            if pred_dt_kr not in data['date'] and pred_dt[5:7].lstrip("0") not in data['date']:
+                st.warning(f"⚠️ **주의:** 메인 대시보드의 최신 예측일({pred_dt_kr})과 현재 리포트의 분석일({data['date']})이 일치하지 않습니다. 파이프라인(30번) 실행 상태를 확인하세요.")
         
         is_up = "상승" in data["direction"]
         bg_color = "rgba(34, 197, 94, 0.1)" if is_up else "rgba(239, 68, 68, 0.1)"
@@ -1187,7 +1194,7 @@ with tab_report:
     daily_text, daily_info = _fetch_report_direct('prediction_report_')
     if daily_text:
         parsed_daily = parse_daily_report(daily_text)
-        render_daily_ui(parsed_daily, daily_text)
+        render_daily_ui(parsed_daily, daily_text, data.get("latest"))
     else:
         st.info("일간 예측 리포트가 없습니다. 파이프라인을 실행하면 생성됩니다.")
 
