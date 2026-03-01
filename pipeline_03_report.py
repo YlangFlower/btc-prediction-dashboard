@@ -1213,12 +1213,8 @@ if 'report' in locals() and SUPABASE_URL and UPLOAD_KEY:
     for chart_key, chart_path in report.get('charts', {}).items():
         upload_to_storage(chart_path, os.path.basename(chart_path), SUPABASE_URL, UPLOAD_KEY)
 
-    # 2. 백테스트 결과 업로드 (MODEL_DIR 변수가 정의되어 있어야 해!)
+    # 2. 최신 리포트 파일 업로드
     if 'MODEL_DIR' in locals():
-        backtest_path = os.path.join(MODEL_DIR, 'backtest_v7e.png')
-        upload_to_storage(backtest_path, 'backtest_v7e.png', SUPABASE_URL, UPLOAD_KEY)
-
-        # 3. 최신 리포트 파일 업로드
         report_files = glob.glob(os.path.join(MODEL_DIR, 'prediction_report_*.txt'))
         if report_files:
             latest = sorted(report_files)[-1]
