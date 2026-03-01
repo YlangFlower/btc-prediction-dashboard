@@ -546,13 +546,62 @@ with tab_news:
         recent_7d = df_news.head(7)
         avg_score = recent_7d['sentiment_score'].mean()
 
-        # 상단 게이지 박스 헤더
+        # 상단 게이지 박스 헤더 (가로형 애니메이션 프로그레스 바 포함)
+        # score = -1.0 ~ 1.0 -> percent = 0% ~ 100% (where 0 is 50%)
+        # percent = (avg_score + 1.0) / 2.0 * 100
+        gauge_percent = max(0, min(100, (avg_score + 1.0) / 2.0 * 100))
+        gauge_color = "#4ade80" if avg_score > 0.1 else "#f87171" if avg_score < -0.1 else "#fcd34d"
+
         st.markdown(clean_html(f"""
+        <style>
+            @keyframes fillBar {{
+                from {{ width: 50%; opacity: 0; }}
+                to {{ width: {gauge_percent}%; opacity: 1; }}
+            }}
+            .sentiment-bar {{
+                height: 100%;
+                border-radius: 8px;
+                background: linear-gradient(90deg, rgba(239,68,68,0.8) 0%, rgba(252,211,77,0.8) 50%, rgba(34,197,94,0.8) 100%);
+                width: {gauge_percent}%;
+                box-shadow: 0 0 10px {gauge_color};
+                animation: fillBar 1.5s ease-out forwards;
+                position: relative;
+                overflow: hidden;
+            }}
+            /* 물결 효과(출렁거림) 추가 */
+            .sentiment-bar::after {{
+                content: '';
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+                animation: shimmer 2s infinite;
+            }}
+            @keyframes shimmer {{
+                0% {{ transform: translateX(-100%); }}
+                100% {{ transform: translateX(100%); }}
+            }}
+        </style>
         <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                 <div style="font-size: 1.25rem; font-weight: 800; color: #e2e8f0;">📊 주간 평균 감성 지표 (Sentiment)</div>
-                <div style="font-size: 1.5rem; font-weight: 900; color: {'#4ade80' if avg_score > 0 else '#f87171'};">{avg_score:.2f}</div>
+                <div style="font-size: 1.5rem; font-weight: 900; color: {gauge_color};">{avg_score:.2f}</div>
             </div>
+            
+            <!-- 가로 막대 그래프 (게이지바) -->
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem; font-weight: bold;">
+                    <span>-1.0 (극단적 공포/거시 악재)</span>
+                    <span>0.0 (중립)</span>
+                    <span>+1.0 (극단적 탐욕/거시 호재)</span>
+                </div>
+                <div style="width: 100%; background: rgba(0,0,0,0.4); height: 24px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); position: relative;">
+                    <!-- 중앙 0점 마커 -->
+                    <div style="position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: rgba(255,255,255,0.3); z-index: 10;"></div>
+                    <!-- 실제 게이지 -->
+                    <div class="sentiment-bar"></div>
+                </div>
+            </div>
+            
             <div style="color: #cbd5e1; font-size: 1.05rem; line-height: 1.6;">
                 {'<span style="color:#4ade80;">🟢 <strong>주간 모멘텀 긍정적:</strong></span> 기관 매수세, 호재성 뉴스가 가격 하락을 강하게 방어하고 있습니다.' if avg_score > 0.3 else '<span style="color:#f87171;">🔴 <strong>주간 모멘텀 부정적:</strong></span> 거시적 불안감 혹은 악재가 하방 압력을 높이고 있습니다.' if avg_score < -0.3 else '<span style="color:#94a3b8;">⚪ <strong>주간 모멘텀 중립적:</strong></span> 뚜렷한 재료 없이 기술적 지표에 의해 방향이 결정될 확률이 높습니다.'}
             </div>
@@ -773,25 +822,63 @@ with tab_report:
         # Extract models (Handle line breaks in model names like PatchTST)
         current_model = None
         for i, line in enumerate(lines):
-            if line.startswith("①") or line.startswith("②") or line.startswith("③"):
+            line_clean = line.strip()
+            # If line is part of a previous model's name that got broken
+            if current_model and not (line_clean.startswith("①") or line_clean.startswith("②") or line_clean.startswith("③") or line_clean.startswith("━")):
+                if "→" in line_clean or "상승" in line_clean or "하락" in line_clean or "중립" in line_clean:
+                     pass # handled below
+                elif not current_model["val"] and not current_model["desc"] and "(" in line_clean and ")" in line_clean:
+                    # Broken name piece (like "Fold 앙상블)")
+                    current_model["name"] += " " + line_clean
+                    continue
+
+            if line_clean.startswith("①") or line_clean.startswith("②") or line_clean.startswith("③"):
                 if current_model:
                     data["models"].append(current_model)
-                parts = line.split('-', 1)
+                parts = line_clean.split('-', 1)
                 name = parts[0].strip('①②③ ')
                 val_and_desc = parts[1].strip() if len(parts)>1 else ""
                 current_model = {"name": name, "val": val_and_desc, "desc": ""}
             elif current_model:
-                if "→" in line:
-                    current_model["desc"] = line.replace('→', '').strip()
-                elif line.strip() and not line.startswith("━"):
-                    # Append to value if it's a broken line
-                    current_model["val"] += " " + line.strip()
-                elif line.startswith("━"):
+                if "→" in line_clean:
+                    # e.g., "70% → 강한 상승" -> "강한 상승"
+                    v = line_clean.split('→')[-1].strip()
+                    # Remove "⑥ Final = xxxx" noise if present
+                    if "⑥" in v:
+                        v = v.split("⑥")[0].strip()
+                    current_model["val"] = v
+                elif line_clean and not line_clean.startswith("━"):
+                    if not current_model["val"] and ("상승" in line_clean or "하락" in line_clean or "중립" in line_clean):
+                         current_model["val"] = line_clean
+                    else:
+                        current_model["desc"] += " " + line_clean
+                elif line_clean.startswith("━"):
                     data["models"].append(current_model)
                     current_model = None
 
         if current_model:
             data["models"].append(current_model)
+            
+        # Clean up model names and values post-extraction
+        for m in data["models"]:
+            # Clean up line breaks and weird formatting in name
+            m["name"] = m["name"].replace('\n', ' ').strip()
+            if "(Kaggle 전체 학습)" in m["name"]:
+                m["name"] = m["name"].replace("(Kaggle 전체 학습)", "").strip()
+            
+            # Add roles
+            if "PatchTST" in m["name"] and "장기" not in m["name"]:
+                m["name"] = f"PatchTST <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(장기 패턴 분배)</span>"
+            elif "CNN" in m["name"] and "LSTM" in m["name"]:
+                m["name"] = f"CNN-LSTM <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(단기 신호 포착)</span>"
+            elif "CatBoost" in m["name"]:
+                m["name"] = f"CatBoost <span style='font-size:0.8rem; font-weight:normal; color:#8b949e;'>(기술적 추세)</span>"
+            
+            # Clean up values (extract just direction)
+            v = m["val"]
+            if "상승" in v: m["val"] = "상승 📈"
+            elif "하락" in v: m["val"] = "하락 📉"
+            else: m["val"] = "중립 ➖"
             
         return data
 
@@ -828,12 +915,14 @@ with tab_report:
         if data["models"]:
             cols = st.columns(len(data["models"]))
             for i, m in enumerate(data["models"]):
+                m_val = m["val"]
+                m_color = "#4ade80" if "상승" in m_val else "#f87171" if "하락" in m_val else "#94a3b8"
                 with cols[i]:
                     st.markdown(clean_html(f"""
                     <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                        <div style="font-weight: 800; color: #e2e8f0; margin-bottom: 0.5rem; font-size: 1.05rem;">{m['name']}</div>
-                        <div style="color: #fb923c; font-weight: bold; margin-bottom: 0.75rem; font-size: 0.95rem;">{m['val']}</div>
-                        <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.5;">{m['desc']}</div>
+                        <div style="font-weight: 800; color: #e2e8f0; margin-bottom: 0.5rem; font-size: 1.15rem;">{m['name']}</div>
+                        <div style="color: {m_color}; font-weight: 800; margin-bottom: 0.75rem; font-size: 1.05rem;">{m['val']}</div>
+                        <div style="color: #94a3b8; font-size: 0.9rem; line-height: 1.5;">{m['desc'].strip()}</div>
                     </div>
                     """), unsafe_allow_html=True)
                
