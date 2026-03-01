@@ -4,11 +4,16 @@ import os
 import json
 import glob
 import textwrap
+import re
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, timezone
 from supabase import create_client
 from dotenv import load_dotenv
+
+def clean_html(html_str):
+    # Strip all leading whitespaces from every line to prevent Streamlit from wrapping in code blocks
+    return re.sub(r'^\s+', '', html_str, flags=re.MULTILINE)
 
 # --- 페이지 기본 설정 ---
 st.set_page_config(
@@ -542,7 +547,7 @@ with tab_news:
         avg_score = recent_7d['sentiment_score'].mean()
 
         # 상단 게이지 박스 헤더
-        st.markdown(textwrap.dedent(f"""
+        st.markdown(clean_html(f"""
         <div style="background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(148,163,184,0.25); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1rem;">
                 <div style="font-size: 1.25rem; font-weight: 800; color: #e2e8f0;">📊 주간 평균 감성 지표 (Sentiment)</div>
@@ -588,7 +593,7 @@ with tab_news:
             </div>
             """
         html_feed += "</div>"
-        st.markdown(textwrap.dedent(html_feed), unsafe_allow_html=True)
+        st.markdown(clean_html(html_feed), unsafe_allow_html=True)
     else:
         st.info("최근 뉴스 감성 데이터가 존재하지 않습니다.")
 
@@ -818,13 +823,13 @@ with tab_report:
     </div>
 </div>
 """
-        st.markdown(html, unsafe_allow_html=True)
+        st.markdown(clean_html(html), unsafe_allow_html=True)
         
         if data["models"]:
             cols = st.columns(len(data["models"]))
             for i, m in enumerate(data["models"]):
                 with cols[i]:
-                    st.markdown(textwrap.dedent(f"""
+                    st.markdown(clean_html(f"""
                     <div style="background: rgba(22,27,34,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1.25rem; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                         <div style="font-weight: 800; color: #e2e8f0; margin-bottom: 0.5rem; font-size: 1.05rem;">{m['name']}</div>
                         <div style="color: #fb923c; font-weight: bold; margin-bottom: 0.75rem; font-size: 0.95rem;">{m['val']}</div>
@@ -967,7 +972,7 @@ with tab_report:
     </div>
 </div>
 """
-        st.markdown(html, unsafe_allow_html=True)
+        st.markdown(clean_html(html), unsafe_allow_html=True)
         
         with st.expander("📄 [클릭] 주간 리포트 전문 보기"):
             st.code(raw_text, language="markdown")
