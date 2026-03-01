@@ -100,14 +100,21 @@ log(f"  OpenAI API: {'사용 가능' if OPENAI_API_KEY else '미설정 (템플�
 today = datetime.now(KST).date()
 tomorrow = today + timedelta(days=1)
 
-log(f'분석일: {today}')
-log(f'내일: {tomorrow}')
+# 돌아오는 월요일 계산 (일요일 실행 → 내일이 월요일)
+DAY_KO = ["월","화","수","목","금","토","일"]
+days_to_monday = (7 - today.weekday()) % 7
+if days_to_monday == 0:
+    days_to_monday = 7
+next_monday = today + timedelta(days=days_to_monday)   # 예측 주 시작 (월)
+next_sunday  = next_monday + timedelta(days=6)         # 예측 주 끝  (일)
 
-# 주간 예측 조회: 실행 시점 기준 "앞으로 7일"을 포함하는 예측
-# prediction_week_start <= tomorrow <= prediction_week_start + 6 인 행 조회
-# (가장 최근 것 = prediction_week_start 내림차순, limit 1)
+log(f'리포트 작성일: {today} ({DAY_KO[today.weekday()]})')
+log(f'예측 주간: {next_monday}(월) ~ {next_sunday}(일)')
+
+# 주간 예측 조회: 돌아오는 월요일(next_monday)을 포함하는 예측
+# prediction_week_start == next_monday 인 행을 우선, fallback은 최근 예측
 weekly_res = supabase.table('weekly_predictions').select('*').lte(
-    'prediction_week_start', tomorrow.isoformat()
+    'prediction_week_start', next_monday.isoformat()
 ).order('prediction_week_start', desc=True).limit(5).execute()
 
 weekly = None
@@ -116,12 +123,14 @@ if weekly_res.data:
         wk_s = row.get('prediction_week_start')
         wk_start = datetime.strptime(str(wk_s), '%Y-%m-%d').date() if isinstance(wk_s, str) else wk_s
         wk_end = wk_start + timedelta(days=6)
-        if wk_start <= tomorrow <= wk_end:
+        if wk_start == next_monday:   # 돌아오는 월요일이 정확히 맞는 예측
             weekly = row
             break
+        if wk_start <= next_monday <= wk_end:  # 범위 안에 들어가는 예측
+            weekly = row  # 아직 break 안 함 (더 나은 것 있을 수 있음)
     if not weekly and weekly_res.data:
         weekly = weekly_res.data[0]  # fallback: 최근 예측
-        log(f'⚠️ 내일({tomorrow})을 포함하는 예측 없음 → 최근 예측 사용: {weekly.get("prediction_week_start")}')
+        log(f'⚠️ {next_monday}(월) 예측 없음 → 최근 예측 사용: {weekly.get("prediction_week_start")}')
 
 if weekly:
     wk_s = weekly.get('prediction_week_start')
@@ -130,18 +139,17 @@ if weekly:
 else:
     log('⚠️ 주간 예측 없음 (32_weekly_predict_v35_load 실행 후 확인)')
 
-# 일간 예측 조회 (내일 1건만)
-# date 컬럼이 timestamptz이므로 날짜 범위로 조회 (정확 일치 시 10:25:29 등과 매칭 안 됨)
-day_after = tomorrow + timedelta(days=1)
+# 일간 예측 조회 (예측 주 첫날=next_monday 1건)
+day_after_monday = next_monday + timedelta(days=1)
 daily_res = supabase.table('predictions').select(
     'date', 'direction', 'confidence_score', 'is_correct', 'actual_result'
-).gte('date', tomorrow.isoformat()).lt('date', day_after.isoformat()).order('date', desc=True).limit(1).execute()
+).gte('date', next_monday.isoformat()).lt('date', day_after_monday.isoformat()).order('date', desc=True).limit(1).execute()
 
 daily_tomorrow = daily_res.data[0] if daily_res.data and len(daily_res.data) > 0 else None
 if daily_tomorrow:
-    log(f'일간 예측: 내일 {tomorrow} 1건 (방향={daily_tomorrow.get("direction")}, 신뢰도={daily_tomorrow.get("confidence_score", 0):.2f})')
+    log(f'일간 예측: {next_monday}(월) 1건 (방향={daily_tomorrow.get("direction")}, 신뢰도={daily_tomorrow.get("confidence_score", 0):.2f})')
 else:
-    log('⚠️ 내일 일간 예측 없음 (오늘 실행 후 생성됨)')
+    log(f'⚠️ {next_monday}(월) 일간 예측 없음 (일간 파이프라인 실행 후 생성됨)')
 
 # ## 🔍 3. 통합 분석
 
@@ -347,15 +355,15 @@ def generate_integrated_report(use_openai=True):
     boundary_pct = weekly.get('boundary', 0.02) if weekly else 0.02
     target_hits = weekly.get('target_hits', 4) if weekly else 4
     
-    period_str = f"{wk_start} ~ {wk_end}" if wk_start and wk_end else "N/A"
-    user_input = f"""분석일: {current_time}
-내일: {tomorrow}
+    period_str = f"{next_monday}(월) ~ {next_sunday}(일)" if next_monday and next_sunday else "N/A"
+    monday_str = next_monday.strftime('%Y년 %m월 %d일')
+    user_input = f"""리포트 작성일: {current_time} (일요일 — 다음 주 미리 보기)
+예측 주간: {period_str}
 
-[내일 일간 예측]
+[{next_monday}(월) 일간 예측]
 {daily_str}
 
-[앞으로 7일 주간 예측]
-  예측 기간: {period_str}
+[이번 주 주간 예측 — {period_str}]
   결과: {weekly_regime} (P(Active)={p_active:.4f})
   의미: 7일 중 {target_hits}회 이상 ±{boundary_pct:.2%} 터치 → {"변동성 클 가능성" if weekly_regime=="ACTIVE" else "저변동성 예상"}
 {model_str}
@@ -391,7 +399,7 @@ def generate_template_report_33():
     wk_s = weekly.get('prediction_week_start') if weekly else None
     wk_start = datetime.strptime(str(wk_s), '%Y-%m-%d').date() if wk_s and isinstance(wk_s, str) else (wk_s if wk_s else None)
     wk_end = wk_start + timedelta(days=6) if wk_start else None
-    period_str = f"{wk_start} ~ {wk_end}" if wk_start and wk_end else "N/A"
+    period_str = f"{next_monday}(월) ~ {next_sunday}(일)" if next_monday and next_sunday else "N/A"
     boundary_pct = weekly.get('boundary', 0.02) if weekly else 0.02
     target_hits = weekly.get('target_hits', 4) if weekly else 4
     
@@ -423,10 +431,10 @@ def generate_template_report_33():
     
     model_section = f"\n• 개별 모델: CatBoost {p_cat*100:.1f}% vs PatchTST {p_patch*100:.1f}% → {model_consensus}" if (p_cat or p_patch) else ""
     
-    return f"""📊 일간+주간 통합 시장 분석 리포트
+    return f"""📊 주간 마켓 종합 분석 리포트
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📅 분석일: {current_time}
-🎯 내일: {tomorrow} | 앞으로 7일: {period_str}
+📅 리포트 작성일: {current_time} (일)
+📆 이번 주 예측 기간: {period_str}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📌 한줄 요약

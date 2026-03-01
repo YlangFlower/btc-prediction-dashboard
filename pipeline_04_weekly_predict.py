@@ -447,13 +447,20 @@ log(f'   신뢰도={confidence:.4f}')
 # ## 💾 6. DB 저장 (weekly_predictions)
 
 # ==========================================
-# prediction_week_start = 실행 시점(KST) 기준 앞으로 7일의 첫날 = 내일
-# (features_daily last_date와 무관하게, 코드 실행 순간부터 7일)
+# prediction_week_start = 돌아오는 월요일
+# (매주 일요일 실행 기준: 일요일 → 다음날 월요일부터 한 주)
 # ==========================================
 today_kst = datetime.now(KST).date()
-prediction_week_start = today_kst + timedelta(days=1)  # 내일
 
-log(f'예측 기준: 실행일 {today_kst} → 예측 기간 {prediction_week_start} ~ {prediction_week_start + timedelta(days=6)} (앞으로 7일)')
+# weekday(): 0=월, 1=화, ..., 6=일
+# 돌아오는 월요일까지 남은 일수
+days_to_monday = (7 - today_kst.weekday()) % 7
+if days_to_monday == 0:   # 오늘이 월요일이면 → 다음 주 월요일
+    days_to_monday = 7
+prediction_week_start = today_kst + timedelta(days=days_to_monday)  # 돌아오는 월요일
+
+log(f'예측 기준: 오늘(실행) {today_kst} ({["월","화","수","목","금","토","일"][today_kst.weekday()]}) → '
+    f'예측 주간 {prediction_week_start}(월) ~ {prediction_week_start + timedelta(days=6)}(일)')
 
 # ==========================================
 # weekly_predictions 테이블에 저장
