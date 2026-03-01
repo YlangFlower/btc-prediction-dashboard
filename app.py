@@ -848,9 +848,13 @@ with tab_report:
         for line in lines:
             if "리포트 작성일:" in line:
                 data["date"] = line.split("리포트 작성일:")[-1].strip()
-            elif "이번 주 예측 기간:" in line:
-                data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
+            elif "분석일:" in line:
+                data["date"] = line.split("분석일:")[-1].strip()
                 
+            if "이번 주 예측 기간:" in line:
+                data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
+            elif "앞으로 7일:" in line:
+                data["period"] = line.split("앞으로 7일:")[-1].strip()
         try:
             idx = lines.index("📌 한줄 요약")
             summary = ""
