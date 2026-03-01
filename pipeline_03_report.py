@@ -982,6 +982,15 @@ def generate_extended_template_report(shap_result):
         sig = '\uc0c1\uc2b9 \uc2e0\ud638' if p > 0.5 else '\ud558\ub77d \uc2e0\ud638'
         return f'  {sym} {label:<18}: {p*100:.1f}%  {sig}'
 
+    # Python 3.10 fix: backslash not allowed inside f-string {} expressions
+    _row_pts = model_row('patchtst', 'PatchTST(장기)')
+    _row_cnn = model_row('cnnlstm',  'CNN-LSTM(단기)')
+    _row_cat = model_row('catboost', 'CatBoost(모멘)')
+    _insight_line = (
+        '  ✅ 상승 예측: 분할 매수 전략 고려'
+        if dir_short == '상승'
+        else '  🛡️ 하락 예측: 신규 매수 보류, 현금 비중 확대 고려'
+    )
     report = f"""\
 \U0001f4ca \ube44\ud2b8\ucf54\uc778 AI \uc885\ud569 \uc608\uce21 \ub9ac\ud3ec\ud2b8 (v7E Kaggle)
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
@@ -993,9 +1002,9 @@ def generate_extended_template_report(shap_result):
 \u2502 \u23f3 \uc608\uce21 \ub300\uc0c1: \ud5a5\ud6c4 24\uc2dc\uac04 \ubc29\ud5a5\uc131 (\ucf54\uc778 \ub4f1\ub77d/\ud558\ub77d)         \u2502
 \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
 \U0001f916 AI \ubaa8\ub378 \uc608\uce21 \ubd84\uc11d:
-{model_row('patchtst', 'PatchTST(\uc7a5\uae30)')}
-{model_row('cnnlstm',  'CNN-LSTM(\ub2e8\uae30)')}
-{model_row('catboost', 'CatBoost(\ubaa8\uba58)')}
+{_row_pts}
+{_row_cnn}
+{_row_cat}
   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   \U0001f3c6 \uc559\uc0c4\ube14 \ucd5c\uc885               : {meta_prob*100:.1f}%   \ud95c\uc7ac\ub3c4 {confidence:.1f}%
 
@@ -1022,7 +1031,7 @@ def generate_extended_template_report(shap_result):
   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
 
 \U0001f4a1 \ud22c\uc790 \uc778\uc0ac\uc774\ud2b8:
-  {'  \u2705 \uc0c1\uc2b9 \uc608\uce21: \ubd84\ud560 \ub9e4\uc218 \uc804\ub7b5 \uace0\ub824' if dir_short == '\uc0c1\uc2b9' else '  \U0001f6e1\ufe0f \ud558\ub77d \uc608\uce21: \uc2e0\uaddc \ub9e4\uc218 \ubcf4\ub958, \ud604\uae08 \ube44\uc911 \ud655\ub300 \uace0\ub824'}
+  {_insight_line}
   \u26a0\ufe0f  {100-confidence:.1f}% \ubc18\ub300 \uac00\ub2a5\uc131 \u2192 \uc190\uc808 \ub77c\uc778 \uc124\uc815 \ud544\uc218
   \U0001f4cc \uae30\ub300 \uc815\ud655\ub3c4({predicted_accuracy:.1f}%)\ub294 \uc2e0\ub8b0\ub3c4-\uc815\ud655\ub3c4 \uacf5\uc2dd \uae30\ubc18 \ucd94\uc815\uce58\uc785\ub2c8\ub2e4
 
