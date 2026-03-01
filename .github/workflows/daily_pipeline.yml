@@ -36,6 +36,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r requirements_actions.txt
+          pip install pygooglenews --no-deps
 
       # ─────────────────────────────────────────────
       # Step 1: 데이터 크롤링 및 DB 저장

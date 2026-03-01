@@ -29,7 +29,7 @@ pyupbit
 openai
 langchain-core
 langchain-openai
-pygooglenews
+feedparser>=6.0.2
 tqdm
 
 # Visualization / Report
