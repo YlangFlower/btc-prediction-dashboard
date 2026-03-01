@@ -763,7 +763,7 @@ with tab_report:
 
     # 일간 예측 리포트
     st.markdown("#### 📋 일간 AI 예측 리포트")
-    daily_text, daily_info = _fetch_report_direct('prediction_report_')
+    daily_text, daily_info = _fetch_report_direct('prediction_report_20')
     if daily_text:
         st.caption(f"파일: {daily_info}")
         with st.container(border=True):
