@@ -495,11 +495,53 @@ ai_report = generate_integrated_report(use_openai=bool(OPENAI_API_KEY))
 print('\n')
 print(ai_report)
 
-# 파일 저장 (Colab인 경우 PROJECT_ROOT에)
+# ============================================================
+# 💾 파일 저장 + ☁️ Supabase Storage 업로드
+# ============================================================
+import requests as _req
+
+# 날짜 파일명 (오늘 날짜 기준)
+today_str = today.strftime('%Y-%m-%d')
+dated_fname  = f'market_analysis_report_{today_str}.txt'
+dated_path   = os.path.join(PROJECT_ROOT, dated_fname)
+
+# 로컬 저장 (날짜 포함 파일명)
 try:
-    report_path = os.path.join(PROJECT_ROOT, 'market_analysis_report_33.txt')
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(dated_path, 'w', encoding='utf-8') as f:
         f.write(ai_report)
-    log(f'\n✅ 레포트 저장: {report_path}', important=True)
+    log(f'\n✅ 레포트 저장: {dated_path}', important=True)
 except Exception as e:
     log(f'레포트 저장 실패: {e}')
+
+# Supabase Storage 업로드 (charts 버킷)
+UPLOAD_KEY = os.getenv('SUPABASE_SERVICE_KEY', os.getenv('SUPABASE_KEY'))
+CHARTS_BUCKET = 'charts'
+
+def _upload_text_to_storage(local_path, remote_name, supabase_url, key, bucket):
+    """텍스트 파일을 Supabase Storage에 업로드 (upsert)"""
+    if not os.path.exists(local_path):
+        log(f'⚠️ 업로드 파일 없음: {remote_name}')
+        return False
+    headers = {
+        'apikey': key,
+        'Authorization': f'Bearer {key}',
+        'Content-Type': 'text/plain; charset=utf-8',
+        'x-upsert': 'true',
+    }
+    with open(local_path, 'rb') as f:
+        data = f.read()
+    url = f'{supabase_url}/storage/v1/object/{bucket}/{remote_name}'
+    resp = _req.post(url, headers=headers, data=data, timeout=30)
+    if resp.status_code in (200, 201, 204):
+        log(f'☁️ 업로드 완료: {remote_name}')
+        return True
+    else:
+        log(f'❌ 업로드 실패 ({resp.status_code}): {remote_name} — {resp.text[:100]}')
+        return False
+
+if SUPABASE_URL and UPLOAD_KEY:
+    log('\n☁️ Supabase Storage 업로드 시작')
+    _upload_text_to_storage(dated_path, dated_fname, SUPABASE_URL, UPLOAD_KEY, CHARTS_BUCKET)
+    log('🎉 주간 마켓 레포트 업로드 완료! 웹사이트에서 확인하세요.')
+else:
+    log('⚠️ SUPABASE_URL 또는 SUPABASE_SERVICE_KEY 미설정 — 업로드 건너뜀')
