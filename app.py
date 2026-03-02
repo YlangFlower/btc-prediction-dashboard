@@ -151,8 +151,8 @@ def fetch_all_data():
             out["acc_30d"]["correct"] = sum(1 for r in res_acc.data if r.get('is_correct'))
             out["acc_30d"]["history"] = res_acc.data
 
-        # 6. Weekly Prediction (Latest)
-        res_w = supabase.table('weekly_predictions').select('*').order('prediction_week_start', desc=True).limit(1).execute()
+        max_date = (datetime.now() + timedelta(days=6)).strftime("%Y-%m-%d")
+        res_w = supabase.table('weekly_predictions').select('*').lte('prediction_week_start', max_date).order('prediction_week_start', desc=True).limit(1).execute()
         if res_w.data:
             out["weekly_prediction"] = res_w.data[0]
 
@@ -1036,12 +1036,15 @@ with tab_report:
         # 날짜(period)를 텍스트 파싱 대신, 확실한 DB 데이터를 기준으로 생성합니다.
         if weekly_db_data and weekly_db_data.get("prediction_week_start"):
             try:
+                DAY_KO = ["월","화","수","목","금","토","일"]
                 # DB의 prediction_week_start (예: "2026-03-02")
                 start_str = str(weekly_db_data["prediction_week_start"])
                 # "YYYY-MM-DD" 포맷이라고 가정
                 start_date = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
                 end_date = start_date + timedelta(days=6)
-                data["period"] = f"{start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')}"
+                sw_ko = DAY_KO[start_date.weekday()]
+                ew_ko = DAY_KO[end_date.weekday()]
+                data["period"] = f"{start_date.strftime('%Y-%m-%d')}({sw_ko}) ~ {end_date.strftime('%Y-%m-%d')}({ew_ko})"
             except Exception as e:
                 pass
 
