@@ -1063,17 +1063,25 @@ with tab_report:
                     data["period"] = line.split("앞으로 7일:")[-1].strip()
                 elif "예측 기간:" in line:
                     data["period"] = line.split("예측 기간:")[-1].strip()
+        # Summary Parsing (한줄 요약)
         try:
-            idx = lines.index("📌 한줄 요약")
-            summary = ""
-            for i in range(idx+1, len(lines)):
-                if "┌" in lines[i] or "━" in lines[i]: break
-                if lines[i].strip():
-                    summary += lines[i].strip() + " "
-            data["summary"] = summary.strip()
+            idx = -1
+            for i, l in enumerate(lines):
+                if "📌 한줄 요약" in l:
+                    idx = i
+                    break
+            
+            if idx != -1:
+                summary = ""
+                for i in range(idx+1, len(lines)):
+                    if "┌" in lines[i] or "━" in lines[i]: break
+                    if lines[i].strip():
+                        summary += lines[i].strip() + " "
+                data["summary"] = summary.strip()
         except: pass
         
         for line in lines:
+            line = line.strip()
             if "│" in line:
                 parts = [p.strip() for p in line.split("│")]
                 if len(parts) >= 3:
