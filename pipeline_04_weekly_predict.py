@@ -63,7 +63,7 @@ import sys
 import os
 
 IS_COLAB = 'google.colab' in sys.modules
-IS_KAGGLE = 'kaggle_secrets' in sys.modules or os.path.exists('/kaggle/working')
+IS_KAGGLE = 'kaggle_secrets' in sys.modules or (os.path.exists('/kaggle/working') and not os.name == 'nt')
 IS_GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS') == 'true'
 
 # [로컬 & 기존 Colab 드라이브 사용자용] .env 파일 로드
@@ -455,9 +455,8 @@ today_kst = datetime.now(KST).date()
 # weekday(): 0=월, 1=화, ..., 6=일
 # 돌아오는 월요일까지 남은 일수
 days_to_monday = (7 - today_kst.weekday()) % 7
-if days_to_monday == 0:   # 오늘이 월요일이면 → 다음 주 월요일
-    days_to_monday = 7
-prediction_week_start = today_kst + timedelta(days=days_to_monday)  # 돌아오는 월요일
+# 오늘이 월요일이면 그대로 이번 주 사용
+prediction_week_start = today_kst + timedelta(days=days_to_monday)  # 돌아오는 월요일 (또는 오늘)
 
 log(f'예측 기준: 오늘(실행) {today_kst} ({["월","화","수","목","금","토","일"][today_kst.weekday()]}) → '
     f'예측 주간 {prediction_week_start}(월) ~ {prediction_week_start + timedelta(days=6)}(일)')
