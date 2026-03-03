@@ -1033,21 +1033,7 @@ with tab_report:
         data = { "date": "N/A", "period": "N/A", "summary": "", "risk": {}, "scenario": [], "points": [] }
         lines = text.split('\n')
         
-        # 날짜(period)를 텍스트 파싱 대신, 확실한 DB 데이터를 기준으로 생성합니다.
-        if weekly_db_data and weekly_db_data.get("prediction_week_start"):
-            try:
-                DAY_KO = ["월","화","수","목","금","토","일"]
-                # DB의 prediction_week_start (예: "2026-03-02")
-                start_str = str(weekly_db_data["prediction_week_start"])
-                # "YYYY-MM-DD" 포맷이라고 가정
-                start_date = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
-                end_date = start_date + timedelta(days=6)
-                sw_ko = DAY_KO[start_date.weekday()]
-                ew_ko = DAY_KO[end_date.weekday()]
-                data["period"] = f"{start_date.strftime('%Y-%m-%d')}({sw_ko}) ~ {end_date.strftime('%Y-%m-%d')}({ew_ko})"
-            except Exception as e:
-                pass
-
+        # 날짜(period)를 텍스트 내에서 파싱하여 가져옵니다 (DB와 불일치 방지).
         for line in lines:
             line = line.strip()
             # Date Parsing (작성일 / 분석일 등)
@@ -1058,14 +1044,15 @@ with tab_report:
             elif "분석 기준일:" in line:
                 data["date"] = line.split("분석 기준일:")[-1].strip()
             
-            # Period Parsing 백업 (DB 데이터가 없을 경우에만 텍스트 파싱 시도)
-            if data["period"] == "N/A":
-                if "이번 주 예측 기간:" in line:
-                    data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
-                elif "앞으로 7일:" in line:
-                    data["period"] = line.split("앞으로 7일:")[-1].strip()
-                elif "예측 기간:" in line:
-                    data["period"] = line.split("예측 기간:")[-1].strip()
+            # Period Parsing (DB가 아닌 텍스트 전문 우선 파싱)
+            if "이번 주 예측 기간:" in line:
+                data["period"] = line.split("이번 주 예측 기간:")[-1].strip()
+            elif "앞으로 7일:" in line:
+                data["period"] = line.split("앞으로 7일:")[-1].strip()
+            elif "예측 기간:" in line:
+                data["period"] = line.split("예측 기간:")[-1].strip()
+            elif "예측 주간:" in line:
+                data["period"] = line.split("예측 주간:")[-1].strip()
         # Summary Parsing (한줄 요약)
         try:
             idx = -1
