@@ -161,9 +161,10 @@ def init_sentiment_analyzer():
             3. Keys required:
                - "sentiment": float between -1.0 (Negative) to 1.0 (Positive)
                - "impact": float between 0.0 (Low) to 1.0 (High)
+               - "reasoning": a single concise English sentence explaining why you gave those scores, referencing the key headlines.
 
             JSON OUTPUT EXAMPLE:
-            {{"sentiment": 0.45, "impact": 0.8}}
+            {{"sentiment": 0.45, "impact": 0.8, "reasoning": "The headlines reflect a predominantly positive sentiment as Bitcoin ETF approval boosts institutional confidence."}}
             """
         )
         sentiment_chain = sentiment_prompt | llm
@@ -175,20 +176,20 @@ def init_sentiment_analyzer():
 
 
 def parse_llm_response(response_content):
-    """LLM 응답 파싱"""
+    """LLM 응답 파싱 (sentiment, impact, reasoning, parse_error 반환)"""
     content = response_content.replace("```json", "").replace("```", "").strip()
     try:
         data = json.loads(content)
-        return float(data.get('sentiment', 0.0)), float(data.get('impact', 0.0)), None
+        return float(data.get('sentiment', 0.0)), float(data.get('impact', 0.0)), str(data.get('reasoning', '')), None
     except json.JSONDecodeError:
         try:
             match = re.search(r'\{.*"sentiment".*\}', content, re.DOTALL)
             if match:
                 data = json.loads(match.group(0))
-                return float(data.get('sentiment', 0.0)), float(data.get('impact', 0.0)), None
+                return float(data.get('sentiment', 0.0)), float(data.get('impact', 0.0)), str(data.get('reasoning', '')), None
         except:
             pass
-        return 0.0, 0.0, f"Parse Error: {content[:50]}..."
+        return 0.0, 0.0, '', f"Parse Error: {content[:50]}..."
 
 
 def fetch_and_analyze_daily(target_date, sentiment_chain, gn):
@@ -215,13 +216,14 @@ def fetch_and_analyze_daily(target_date, sentiment_chain, gn):
     headlines_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])
     try:
         res = sentiment_chain.invoke({"headlines_text": headlines_text})
-        sentiment, impact, parse_err = parse_llm_response(res.content)
+        sentiment, impact, reasoning, parse_err = parse_llm_response(res.content)
 
         result = {
             "date": target_date,
             "sentiment_score": sentiment,
             "impact_score": impact,
             "headline_summary": headlines[0],
+            "reasoning": reasoning,
             "error_log": parse_err
         }
         return result, None
@@ -232,6 +234,7 @@ def fetch_and_analyze_daily(target_date, sentiment_chain, gn):
             "sentiment_score": 0.0,
             "impact_score": 0.0,
             "headline_summary": headlines[0] if headlines else "",
+            "reasoning": "",
             "error_log": str(e)
         }, f"Analysis Fail: {e}"
 
@@ -264,8 +267,10 @@ def collect_and_save_sentiment(start_date, end_date):
         logger.warning(f"raw_sentiment 조회 실패: {e}")
         sentiment_start = start_date
     
-    # 어제까지만 수집 (오늘 뉴스는 아직 완전하지 않음)
-    sentiment_end = min(end_date, datetime.now(timezone.utc) - timedelta(days=1))
+    # KST 기준 어제까지만 수집 (오늘 뉴스는 아직 완전하지 않음)
+    KST = timezone(timedelta(hours=9))
+    kst_yesterday = datetime.now(KST).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc) - timedelta(days=1)
+    sentiment_end = min(end_date, kst_yesterday)
     
     total_days = (sentiment_end - sentiment_start).days + 1
     if total_days <= 0:

@@ -134,8 +134,9 @@ def fetch_all_data():
         ).gte('date', thirty_days_ago).order('date', desc=False).execute()
         out["features_30d"] = res_f30.data if res_f30.data else []
 
-        # 3. Sentiment Data
-        fourteen_days_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+        # 3. Sentiment Data (KST 기준 14일)
+        KST = timezone(timedelta(hours=9))
+        fourteen_days_ago = (datetime.now(KST) - timedelta(days=14)).strftime('%Y-%m-%d')
         res_s = supabase.table('raw_sentiment').select('*').gte('date', fourteen_days_ago).order('date', desc=True).execute()
         out["sentiment_7d"] = res_s.data if res_s.data else []
 
@@ -699,51 +700,6 @@ with tab_news:
 
         st.markdown("#### 🕒 최근 14일 헤드라인 분석 피드")
 
-        html_feed = """
-        <style>
-            .reasoning-box {
-                display: none;
-                margin-top: 1rem;
-                padding: 1rem 1.25rem;
-                background: rgba(96, 165, 250, 0.07);
-                border-left: 3px solid rgba(96, 165, 250, 0.5);
-                border-radius: 8px;
-                color: #94a3b8;
-                font-size: 0.95rem;
-                line-height: 1.7;
-                animation: fadeInDown 0.25s ease;
-            }
-            .reasoning-box.open { display: block; }
-            @keyframes fadeInDown {
-                from { opacity: 0; transform: translateY(-6px); }
-                to   { opacity: 1; transform: translateY(0); }
-            }
-            .reasoning-toggle-btn {
-                margin-top: 0.9rem;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                background: rgba(96, 165, 250, 0.1);
-                color: #60a5fa;
-                border: 1px solid rgba(96, 165, 250, 0.3);
-                border-radius: 20px;
-                padding: 5px 14px;
-                font-size: 0.82rem;
-                font-weight: 600;
-                cursor: pointer;
-                transition: background 0.2s, border-color 0.2s;
-                user-select: none;
-            }
-            .reasoning-toggle-btn:hover {
-                background: rgba(96, 165, 250, 0.2);
-                border-color: rgba(96, 165, 250, 0.6);
-            }
-            .reasoning-toggle-btn .arrow { transition: transform 0.25s; display: inline-block; }
-            .reasoning-toggle-btn.active .arrow { transform: rotate(180deg); }
-        </style>
-        <div style='display:flex; flex-direction:column; gap:1.25rem;'>
-        """
-
         for idx, row in df_news.iterrows():
             date_str = row['date'].strftime("%Y-%m-%d")
             score = row.get('sentiment_score', 0)
@@ -763,31 +719,7 @@ with tab_news:
                 imp_style = "background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2);"
                 imp_icon = "⚡"
 
-            card_id = f"reasoning_{idx}"
-
-            # reasoning 토글 HTML (없으면 버튼 미표시)
-            if reasoning and str(reasoning).strip() and str(reasoning).strip().lower() != 'null':
-                safe_reasoning = str(reasoning).replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
-                reasoning_html = f"""
-                <button class="reasoning-toggle-btn" onclick="
-                    var box = document.getElementById('{card_id}');
-                    var btn = this;
-                    box.classList.toggle('open');
-                    btn.classList.toggle('active');
-                    btn.querySelector('.label').textContent = box.classList.contains('open') ? '평가 이유 접기' : '왜 이렇게 점수를 평가했나요?';
-                ">
-                    💡 <span class="label">왜 이렇게 점수를 평가했나요?</span>
-                    <span class="arrow">▾</span>
-                </button>
-                <div id="{card_id}" class="reasoning-box">
-                    <strong style="color: #93c5fd; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">🤖 AI 평가 근거</strong>
-                    {safe_reasoning}
-                </div>
-                """
-            else:
-                reasoning_html = ""
-
-            html_feed += f"""
+            card_html = f"""
             <div class="glass-card" style="padding: 1.5rem; margin-bottom: 0.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; gap: 8px; align-items: center;">
@@ -797,11 +729,14 @@ with tab_news:
                     <span style="color: #64748b; font-size: 13px; font-weight: 500;">{date_str}</span>
                 </div>
                 <div style="color: #e2e8f0; font-size: 1.1rem; font-weight: 500; line-height: 1.5;">{head}</div>
-                {reasoning_html}
             </div>
             """
-        html_feed += "</div>"
-        st.markdown(clean_html(html_feed), unsafe_allow_html=True)
+            st.markdown(clean_html(card_html), unsafe_allow_html=True)
+
+            # reasoning 토글 — Streamlit 네이티브 expander 사용
+            if reasoning and str(reasoning).strip() and str(reasoning).strip().lower() != 'null':
+                with st.expander("💡 왜 이렇게 점수를 평가했나요?"):
+                    st.markdown(f"🤖 **AI 평가 근거**\n\n{reasoning}")
     else:
         st.info("최근 뉴스 감성 데이터가 존재하지 않습니다.")
 
