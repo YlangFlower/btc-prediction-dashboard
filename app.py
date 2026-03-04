@@ -699,12 +699,57 @@ with tab_news:
 
         st.markdown("#### 🕒 최근 14일 헤드라인 분석 피드")
 
-        html_feed = "<div style='display:flex; flex-direction:column; gap:1.25rem;'>"
+        html_feed = """
+        <style>
+            .reasoning-box {
+                display: none;
+                margin-top: 1rem;
+                padding: 1rem 1.25rem;
+                background: rgba(96, 165, 250, 0.07);
+                border-left: 3px solid rgba(96, 165, 250, 0.5);
+                border-radius: 8px;
+                color: #94a3b8;
+                font-size: 0.95rem;
+                line-height: 1.7;
+                animation: fadeInDown 0.25s ease;
+            }
+            .reasoning-box.open { display: block; }
+            @keyframes fadeInDown {
+                from { opacity: 0; transform: translateY(-6px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+            .reasoning-toggle-btn {
+                margin-top: 0.9rem;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: rgba(96, 165, 250, 0.1);
+                color: #60a5fa;
+                border: 1px solid rgba(96, 165, 250, 0.3);
+                border-radius: 20px;
+                padding: 5px 14px;
+                font-size: 0.82rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s, border-color 0.2s;
+                user-select: none;
+            }
+            .reasoning-toggle-btn:hover {
+                background: rgba(96, 165, 250, 0.2);
+                border-color: rgba(96, 165, 250, 0.6);
+            }
+            .reasoning-toggle-btn .arrow { transition: transform 0.25s; display: inline-block; }
+            .reasoning-toggle-btn.active .arrow { transform: rotate(180deg); }
+        </style>
+        <div style='display:flex; flex-direction:column; gap:1.25rem;'>
+        """
+
         for idx, row in df_news.iterrows():
             date_str = row['date'].strftime("%Y-%m-%d")
             score = row.get('sentiment_score', 0)
             imp = row.get('impact_score', 0)
             head = row.get('headline_summary', '(API 로딩 실패 또는 빈 헤드라인)')
+            reasoning = row.get('reasoning', None)
 
             s_badge_color = "rgba(34, 197, 94, 0.15)" if score > 0.3 else ("rgba(239, 68, 68, 0.15)" if score < -0.3 else "rgba(148, 163, 184, 0.15)")
             s_text_color = "#4ade80" if score > 0.3 else ("#f87171" if score < -0.3 else "#94a3b8")
@@ -718,6 +763,30 @@ with tab_news:
                 imp_style = "background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2);"
                 imp_icon = "⚡"
 
+            card_id = f"reasoning_{idx}"
+
+            # reasoning 토글 HTML (없으면 버튼 미표시)
+            if reasoning and str(reasoning).strip() and str(reasoning).strip().lower() != 'null':
+                safe_reasoning = str(reasoning).replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+                reasoning_html = f"""
+                <button class="reasoning-toggle-btn" onclick="
+                    var box = document.getElementById('{card_id}');
+                    var btn = this;
+                    box.classList.toggle('open');
+                    btn.classList.toggle('active');
+                    btn.querySelector('.label').textContent = box.classList.contains('open') ? '평가 이유 접기' : '왜 이렇게 점수를 평가했나요?';
+                ">
+                    💡 <span class="label">왜 이렇게 점수를 평가했나요?</span>
+                    <span class="arrow">▾</span>
+                </button>
+                <div id="{card_id}" class="reasoning-box">
+                    <strong style="color: #93c5fd; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">🤖 AI 평가 근거</strong>
+                    {safe_reasoning}
+                </div>
+                """
+            else:
+                reasoning_html = ""
+
             html_feed += f"""
             <div class="glass-card" style="padding: 1.5rem; margin-bottom: 0.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 10px;">
@@ -728,6 +797,7 @@ with tab_news:
                     <span style="color: #64748b; font-size: 13px; font-weight: 500;">{date_str}</span>
                 </div>
                 <div style="color: #e2e8f0; font-size: 1.1rem; font-weight: 500; line-height: 1.5;">{head}</div>
+                {reasoning_html}
             </div>
             """
         html_feed += "</div>"
