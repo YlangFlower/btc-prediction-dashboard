@@ -667,9 +667,16 @@ def create_prediction_chart(result, predictions, meta_prob, save_path=None):
              transform=ax3.transAxes, fontsize=14, fontweight='bold', color=sig_color)
     ax3.set_title('Final Verdict', color=TEXT_CLR, fontsize=11, fontweight='bold', pad=8)
 
-    now_kst = (datetime.now(timezone.utc) + timedelta(hours=9)).strftime('%Y-%m-%d %H:%M KST')
-    fig.suptitle(f'BTC/USD 24H AI Prediction Dashboard   |   {now_kst}',
-                 color=TEXT_CLR, fontsize=14, fontweight='bold', y=0.97)
+    kst_dt = datetime.now(timezone.utc) + timedelta(hours=9)
+    hour = kst_dt.hour
+    ampm = '오전' if hour < 12 else '오후'
+    h12 = hour % 12 if hour % 12 != 0 else 12
+    now_kst = kst_dt.strftime(f'%Y-%m-%d {ampm} {h12}:%M KST')
+    # 예측 시점 BTC 가격 표기
+    price_usd = result.get('current_price_usd', 0) if result else 0
+    price_str = f'  |  예측 시점 BTC: ${price_usd:,.0f}' if price_usd else ''
+    fig.suptitle(f'BTC/USD 24H AI Prediction Dashboard   |   {now_kst}{price_str}',
+                 color=TEXT_CLR, fontsize=13, fontweight='bold', y=0.97)
 
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     if save_path:

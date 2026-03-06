@@ -21,7 +21,7 @@ joblib
 # Finance / Data crawling
 yfinance
 fredapi
-ccxt
+ccxt==4.3.63
 ta
 pyupbit
 

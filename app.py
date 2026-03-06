@@ -7,6 +7,7 @@ import textwrap
 import re
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta, timezone
 from supabase import create_client
 from dotenv import load_dotenv
@@ -130,7 +131,7 @@ def fetch_all_data():
 
         thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         res_f30 = supabase.table('features_master').select(
-            'date, RSI_14, MACD, MACD_signal, BB_position, fng_value, close'
+            'date, RSI_14, MACD, MACD_signal, BB_position, BB_upper, BB_lower, fng_value, close'
         ).gte('date', thirty_days_ago).order('date', desc=False).execute()
         out["features_30d"] = res_f30.data if res_f30.data else []
 
@@ -311,7 +312,7 @@ st.markdown("<div style='text-align: center; margin-bottom: 1rem;'>"
             "</div>", unsafe_allow_html=True)
 
 # --- 탭 구성 ---
-tab_main, tab_news, tab_charts, tab_report = st.tabs(["🎯 최신 AI 예측 & 시황", "📰 AI 뉴스 감성 분석", "📊 기술적 차트 및 구조", "📝 일간/주간 마켓 리포트"])
+tab_main, tab_news, tab_charts, tab_fng, tab_report = st.tabs(["🎯 최신 AI 예측 & 시황", "📰 AI 뉴스 감성 분석", "📊 기술적 차트 및 구조", "📉 공포/탐욕 지수", "📝 일간/주간 마켓 리포트"])
 
 # ==============================================================================
 # 탭 1: 대시보드 메인
@@ -552,17 +553,10 @@ with tab_main:
 
 
 
-    # ── ② 지표 선택 → 30일 시계열 그래프 ──────────────────────────────────────
+    # ── ② 최근 30일 종합 기술적 차트 (BTC+BB / RSI / MACD 3단 세로 배치) ─────
     st.markdown("---")
-    st.markdown("##### 📈 지표별 30일 시계열 그래프")
-    st.caption("아래에서 보고 싶은 지표를 선택하면 최근 30일 추이를 확인할 수 있습니다.")
-
-    indicator_choice = st.radio(
-        "지표 선택",
-        ["RSI (14일)", "MACD", "볼린저 밴드 위치", "공포/탐욕 지수"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+    st.markdown("##### 📈 최근 30일 종합 기술적 차트")
+    st.caption("BTC 가격(+ 볼린저 밴드), RSI(14), MACD를 한 화면에 세로로 배치합니다.")
 
     features_30d = data.get("features_30d", [])
     if features_30d:
@@ -570,50 +564,114 @@ with tab_main:
         df30['date'] = pd.to_datetime(df30['date'])
         df30 = df30.sort_values('date')
 
-        fig = go.Figure()
-        fig.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(22,27,34,0.8)',
-            font=dict(color='#c9d1d9'),
-            height=320,
-            margin=dict(l=10, r=10, t=30, b=10),
-            xaxis=dict(gridcolor='rgba(255,255,255,0.05)', tickformat='%m/%d'),
-            yaxis=dict(gridcolor='rgba(255,255,255,0.05)'),
-            legend=dict(orientation='h', yanchor='bottom', y=1.02)
+        # 3단 세로 서브플롯 생성
+        fig30 = make_subplots(
+            rows=3, cols=1,
+            shared_xaxes=True,
+            row_heights=[0.50, 0.25, 0.35],
+            vertical_spacing=0.04,
+            subplot_titles=(
+                '📈 BTC 가격 + 볼린저 밴드(BB)',
+                '📊 RSI (14일)',
+                '📉 MACD'
+            )
         )
 
-        if indicator_choice == "RSI (14일)":
-            fig.add_trace(go.Scatter(x=df30['date'], y=df30['RSI_14'], name='RSI', line=dict(color='#f59e0b', width=2)))
-            fig.add_hline(y=70, line_dash="dot", line_color="#f87171", annotation_text="과매수 70")
-            fig.add_hline(y=30, line_dash="dot", line_color="#4ade80", annotation_text="과매도 30")
-            fig.update_layout(yaxis_title="RSI", yaxis_range=[0, 100])
+        # ── Row 1: BTC 가격 + 볼린저 밴드 오버레이 ──
+        # BB 밴드 fill 영역
+        if 'BB_upper' in df30.columns and 'BB_lower' in df30.columns:
+            bb_upper = pd.to_numeric(df30['BB_upper'], errors='coerce')
+            bb_lower = pd.to_numeric(df30['BB_lower'], errors='coerce')
+            fig30.add_trace(go.Scatter(
+                x=df30['date'], y=bb_upper,
+                name='BB 상단',
+                line=dict(color='rgba(167,139,250,0.5)', width=1, dash='dot'),
+                showlegend=True
+            ), row=1, col=1)
+            fig30.add_trace(go.Scatter(
+                x=df30['date'], y=bb_lower,
+                name='BB 하단',
+                line=dict(color='rgba(167,139,250,0.5)', width=1, dash='dot'),
+                fill='tonexty',
+                fillcolor='rgba(167,139,250,0.07)',
+                showlegend=True
+            ), row=1, col=1)
+        # BTC 가격 라인
+        btc_close = pd.to_numeric(df30['close'], errors='coerce')
+        fig30.add_trace(go.Scatter(
+            x=df30['date'], y=btc_close,
+            name='BTC 가격',
+            line=dict(color='#58a6ff', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(88,166,255,0.05)'
+        ), row=1, col=1)
 
-        elif indicator_choice == "MACD":
-            df30['MACD_hist'] = df30['MACD'] - df30['MACD_signal']
-            colors = ['#4ade80' if v >= 0 else '#f87171' for v in df30['MACD_hist']]
-            fig.add_trace(go.Bar(x=df30['date'], y=df30['MACD_hist'], name='MACD 히스토그램', marker_color=colors, opacity=0.7))
-            fig.add_trace(go.Scatter(x=df30['date'], y=df30['MACD'], name='MACD', line=dict(color='#58a6ff', width=2)))
-            fig.add_trace(go.Scatter(x=df30['date'], y=df30['MACD_signal'], name='Signal', line=dict(color='#f97316', width=1.5, dash='dot')))
-            fig.update_layout(yaxis_title="MACD")
+        # ── Row 2: RSI ──
+        rsi_vals = pd.to_numeric(df30['RSI_14'], errors='coerce')
+        fig30.add_trace(go.Scatter(
+            x=df30['date'], y=rsi_vals,
+            name='RSI(14)',
+            line=dict(color='#f59e0b', width=1.8)
+        ), row=2, col=1)
+        # 과매수/과매도 기준선
+        fig30.add_hline(y=70, line_dash='dot', line_color='#f87171',
+                        annotation_text='과매수 70', annotation_position='right',
+                        row=2, col=1)
+        fig30.add_hline(y=30, line_dash='dot', line_color='#4ade80',
+                        annotation_text='과매도 30', annotation_position='right',
+                        row=2, col=1)
+        fig30.add_hline(y=50, line_dash='dot', line_color='rgba(148,163,184,0.4)',
+                        row=2, col=1)
 
-        elif indicator_choice == "볼린저 밴드 위치":
-            fig.add_trace(go.Scatter(x=df30['date'], y=df30['BB_position']*100, name='BB 위치 %', line=dict(color='#a78bfa', width=2), fill='tozeroy', fillcolor='rgba(167,139,250,0.1)'))
-            fig.add_hline(y=80, line_dash="dot", line_color="#f87171", annotation_text="상단 80%")
-            fig.add_hline(y=20, line_dash="dot", line_color="#4ade80", annotation_text="하단 20%")
-            fig.update_layout(yaxis_title="볼린저 밴드 위치 (%)", yaxis_range=[0, 100])
+        # ── Row 3: MACD 히스토그램 + 라인 + 시그널 ──
+        macd_vals = pd.to_numeric(df30['MACD'], errors='coerce')
+        sig_vals  = pd.to_numeric(df30['MACD_signal'], errors='coerce')
+        macd_hist = macd_vals - sig_vals
+        bar_colors = ['#4ade80' if v >= 0 else '#f87171'
+                      for v in macd_hist.fillna(0)]
+        fig30.add_trace(go.Bar(
+            x=df30['date'], y=macd_hist,
+            name='MACD Histogram',
+            marker_color=bar_colors, opacity=0.75
+        ), row=3, col=1)
+        fig30.add_trace(go.Scatter(
+            x=df30['date'], y=macd_vals,
+            name='MACD',
+            line=dict(color='#58a6ff', width=1.8)
+        ), row=3, col=1)
+        fig30.add_trace(go.Scatter(
+            x=df30['date'], y=sig_vals,
+            name='Signal',
+            line=dict(color='#f97316', width=1.4, dash='dot')
+        ), row=3, col=1)
+        fig30.add_hline(y=0, line_dash='solid', line_color='rgba(148,163,184,0.3)',
+                        row=3, col=1)
 
-        elif indicator_choice == "공포/탐욕 지수":
-            if 'fng_value' in df30.columns:
-                df_fng = df30.dropna(subset=['fng_value'])
-                colors_fng = ['#4ade80' if v > 60 else '#f87171' if v < 40 else '#f59e0b' for v in df_fng['fng_value']]
-                fig.add_trace(go.Bar(x=df_fng['date'], y=df_fng['fng_value'], name='F&G 지수', marker_color=colors_fng, opacity=0.85))
-                fig.add_hline(y=60, line_dash="dot", line_color="#4ade80", annotation_text="탐욕 60")
-                fig.add_hline(y=40, line_dash="dot", line_color="#f87171", annotation_text="공포 40")
-                fig.update_layout(yaxis_title="공포/탐욕 지수", yaxis_range=[0, 100])
-            else:
-                st.info("30일 F&G 데이터가 없습니다.")
+        # ── 공통 레이아웃 ──
+        grid = 'rgba(255,255,255,0.05)'
+        fig30.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(22,27,34,0.8)',
+            font=dict(color='#c9d1d9', size=11),
+            height=700,
+            margin=dict(l=10, r=50, t=40, b=10),
+            legend=dict(orientation='h', yanchor='bottom', y=1.01,
+                        bgcolor='rgba(0,0,0,0)', font=dict(size=10)),
+            hovermode='x unified'
+        )
+        # 각 서브플롯 축 스타일
+        for row_i in range(1, 4):
+            fig30.update_xaxes(gridcolor=grid, tickformat='%m/%d', row=row_i, col=1)
+            fig30.update_yaxes(gridcolor=grid, row=row_i, col=1)
+        fig30.update_yaxes(title_text='가격 (USD)', tickformat='$,.0f', row=1, col=1)
+        fig30.update_yaxes(title_text='RSI', range=[0, 100], row=2, col=1)
+        fig30.update_yaxes(title_text='MACD', row=3, col=1)
+        # 서브플롯 제목 색상
+        for ann in fig30.layout.annotations:
+            ann.font.color = '#94a3b8'
+            ann.font.size  = 12
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig30, use_container_width=True)
     else:
         st.info("30일 기술적 지표 데이터를 불러오는 중입니다...")
 
@@ -841,8 +899,176 @@ with tab_charts:
     if not any_found:
         st.info("차트 이미지가 없습니다. Supabase Storage `charts` 버킷에 업로드하거나 파이프라인을 실행하면 자동 생성됩니다.")
 
+
 # ==============================================================================
-# 탭 4: 일간/주간 마켓 리포트
+# 탭 4: 공포/탐욕 지수 & BTC 상관 분석
+# ==============================================================================
+with tab_fng:
+    st.markdown("### 📉 공포/탐욕 지수 & BTC 가격 상관 분석")
+    st.markdown(
+        "<p style='color:#8b949e; font-size:0.95rem; margin-bottom:1.5rem;'>"
+        "공포/탐욕 지수(Fear &amp; Greed Index)와 BTC 가격을 같은 기간에 겹쳐서 보여줍니다. "
+        "지수가 낮을수록(공포) 역발상 매수 기회, 높을수록(탐욕) 과열 경보 신호입니다."
+        "</p>",
+        unsafe_allow_html=True
+    )
+
+    # ── 기간 선택 ──────────────────────────────────────────────
+    period_options = {"30일": 30, "90일": 90, "180일": 180, "1년": 365, "5년": 1825}
+    sel_period = st.radio(
+        "기간 선택",
+        list(period_options.keys()),
+        horizontal=True,
+        index=0,
+        key="fng_period_radio"
+    )
+    ago_days = period_options[sel_period]
+
+    # ── 데이터 조회 ─────────────────────────────────────────────
+    @st.cache_data(ttl=300)
+    def fetch_fng_btc(days: int):
+        if not supabase:
+            return []
+        try:
+            since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            # features_master에서 일별 데이터 가져오기 (하루 1개 기준으로 resample)
+            resp = supabase.table('features_master').select(
+                'date, close, fng_value'
+            ).gte('date', since).order('date', desc=False).execute()
+            return resp.data if resp.data else []
+        except Exception:
+            return []
+
+    fng_raw = fetch_fng_btc(ago_days)
+
+    if fng_raw:
+        df_fng_full = pd.DataFrame(fng_raw)
+        df_fng_full['date'] = pd.to_datetime(df_fng_full['date'])
+        df_fng_full['close'] = pd.to_numeric(df_fng_full['close'], errors='coerce')
+        df_fng_full['fng_value'] = pd.to_numeric(df_fng_full['fng_value'], errors='coerce')
+
+        # 일별로 리샘플 (같은 날짜 중 마지막 값 사용)
+        df_fng_full = df_fng_full.set_index('date').resample('D').last().dropna(how='all').reset_index()
+        df_fng_valid = df_fng_full.dropna(subset=['close', 'fng_value'])
+
+        if not df_fng_valid.empty:
+            # ── 현재 F&G 수치 요약 ──────────────────────────
+            latest_fng = int(df_fng_valid['fng_value'].iloc[-1])
+            latest_btc = df_fng_valid['close'].iloc[-1]
+            avg_fng    = df_fng_valid['fng_value'].mean()
+
+            fng_color = "#4ade80" if latest_fng > 60 else "#f87171" if latest_fng < 40 else "#f59e0b"
+            fng_label = "탐욕 😄" if latest_fng > 60 else "공포 😨" if latest_fng < 40 else "중립 😐"
+
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("현재 F&G 지수", f"{latest_fng}", fng_label, delta_color="off")
+            with col_b:
+                st.metric(f"{sel_period} 평균 F&G", f"{avg_fng:.1f}",
+                          "탐욕 구간" if avg_fng > 60 else "공포 구간" if avg_fng < 40 else "중립 구간",
+                          delta_color="off")
+            with col_c:
+                st.metric("현재 BTC 가격", f"${latest_btc:,.0f}")
+
+            st.markdown("<div style='margin-top:1rem'></div>", unsafe_allow_html=True)
+
+            # ── 이중 Y축 오버레이 차트 ───────────────────────
+            fig_fng = make_subplots(specs=[[{"secondary_y": True}]])
+
+            # F&G 배경 색상 영역 (공포=빨강, 탐욕=초록, 중립=노랑)
+            for _, row_fng in df_fng_valid.iterrows():
+                v = row_fng['fng_value']
+                if v >= 60:
+                    bg = 'rgba(74,222,128,0.06)'
+                elif v <= 40:
+                    bg = 'rgba(248,113,113,0.06)'
+                else:
+                    bg = 'rgba(245,158,11,0.04)'
+
+            # F&G 막대 그래프 (우측 Y축)
+            fng_bar_colors = [
+                '#4ade80' if v > 60 else '#f87171' if v < 40 else '#f59e0b'
+                for v in df_fng_valid['fng_value']
+            ]
+            fig_fng.add_trace(
+                go.Bar(
+                    x=df_fng_valid['date'],
+                    y=df_fng_valid['fng_value'],
+                    name='F&G 지수',
+                    marker_color=fng_bar_colors,
+                    opacity=0.55,
+                    yaxis='y2'
+                ),
+                secondary_y=True
+            )
+
+            # 탐욕/공포 기준선
+            fig_fng.add_hline(y=75, line_dash='dot', line_color='rgba(74,222,128,0.5)',
+                               annotation_text='극단 탐욕 75', annotation_position='right',
+                               secondary_y=True)
+            fig_fng.add_hline(y=25, line_dash='dot', line_color='rgba(248,113,113,0.5)',
+                               annotation_text='극단 공포 25', annotation_position='right',
+                               secondary_y=True)
+
+            # BTC 가격 라인 (좌측 Y축)
+            fig_fng.add_trace(
+                go.Scatter(
+                    x=df_fng_valid['date'],
+                    y=df_fng_valid['close'],
+                    name='BTC 가격',
+                    line=dict(color='#58a6ff', width=2.2),
+                    fill='tozeroy',
+                    fillcolor='rgba(88,166,255,0.04)'
+                ),
+                secondary_y=False
+            )
+
+            fig_fng.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(22,27,34,0.8)',
+                font=dict(color='#c9d1d9', size=11),
+                height=480,
+                margin=dict(l=10, r=60, t=40, b=10),
+                legend=dict(
+                    orientation='h', yanchor='bottom', y=1.01,
+                    bgcolor='rgba(0,0,0,0)'
+                ),
+                hovermode='x unified',
+                xaxis=dict(gridcolor='rgba(255,255,255,0.05)', tickformat='%y/%m/%d'),
+                barmode='overlay'
+            )
+            fig_fng.update_yaxes(
+                title_text='BTC 가격 (USD)',
+                tickformat='$,.0f',
+                gridcolor='rgba(255,255,255,0.05)',
+                secondary_y=False
+            )
+            fig_fng.update_yaxes(
+                title_text='공포/탐욕 지수',
+                range=[0, 100],
+                gridcolor='rgba(0,0,0,0)',
+                secondary_y=True
+            )
+
+            st.plotly_chart(fig_fng, use_container_width=True)
+
+            # ── 지수 구간 범례 설명 ──────────────────────────
+            st.markdown(clean_html("""
+            <div style='display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:0.5rem; font-size:0.85rem; color:#94a3b8;'>
+                <span><span style='color:#f87171;'>■</span> 0~25: 극단 공포 (분할 매수 기회)</span>
+                <span><span style='color:#fb923c;'>■</span> 25~40: 공포 (관망 or 소량 매수)</span>
+                <span><span style='color:#f59e0b;'>■</span> 40~60: 중립</span>
+                <span><span style='color:#86efac;'>■</span> 60~75: 탐욕 (이익실현 고려)</span>
+                <span><span style='color:#4ade80;'>■</span> 75~100: 극단 탐욕 (과열 경보)</span>
+            </div>
+            """), unsafe_allow_html=True)
+        else:
+            st.info(f"선택한 기간({sel_period})에 F&G 데이터가 없습니다. 더 짧은 기간을 선택해보세요.")
+    else:
+        st.info("공포/탐욕 데이터를 불러오는 중입니다. features_master 테이블에 fng_value 컬럼이 있어야 합니다.")
+
+# ==============================================================================
+# 탭 5: 일간/주간 마켓 리포트
 # ==============================================================================
 with tab_report:
     st.markdown("### 📝 일간/주간 마켓 리포트")
