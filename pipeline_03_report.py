@@ -669,12 +669,12 @@ def create_prediction_chart(result, predictions, meta_prob, save_path=None):
 
     kst_dt = datetime.now(timezone.utc) + timedelta(hours=9)
     hour = kst_dt.hour
-    ampm = '오전' if hour < 12 else '오후'
+    ampm = 'AM' if hour < 12 else 'PM'
     h12 = hour % 12 if hour % 12 != 0 else 12
-    now_kst = kst_dt.strftime(f'%Y-%m-%d {ampm} {h12}:%M KST')
+    now_kst = kst_dt.strftime(f'%Y-%m-%d {h12}:%M {ampm} KST')
     # 예측 시점 BTC 가격 표기
     price_usd = result.get('current_price_usd', 0) if result else 0
-    price_str = f'  |  예측 시점 BTC: ${price_usd:,.0f}' if price_usd else ''
+    price_str = f'  |  Price: ${price_usd:,.0f}' if price_usd else ''
     fig.suptitle(f'BTC/USD 24H AI Prediction Dashboard   |   {now_kst}{price_str}',
                  color=TEXT_CLR, fontsize=13, fontweight='bold', y=0.97)
 

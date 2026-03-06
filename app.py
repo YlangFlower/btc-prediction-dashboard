@@ -585,25 +585,23 @@ with tab_main:
             fig30.add_trace(go.Scatter(
                 x=df30['date'], y=bb_upper,
                 name='BB 상단',
-                line=dict(color='rgba(167,139,250,0.5)', width=1, dash='dot'),
+                line=dict(color='rgba(255,255,255,0.2)', width=1, dash='dot'),
                 showlegend=True
             ), row=1, col=1)
             fig30.add_trace(go.Scatter(
                 x=df30['date'], y=bb_lower,
                 name='BB 하단',
-                line=dict(color='rgba(167,139,250,0.5)', width=1, dash='dot'),
+                line=dict(color='rgba(255,255,255,0.2)', width=1, dash='dot'),
                 fill='tonexty',
-                fillcolor='rgba(167,139,250,0.07)',
+                fillcolor='rgba(255,255,255,0.03)',
                 showlegend=True
             ), row=1, col=1)
-        # BTC 가격 라인
+        # BTC 가격 라인 (fill 토글 제거 및 선 굵기/색상 조정으로 구별)
         btc_close = pd.to_numeric(df30['close'], errors='coerce')
         fig30.add_trace(go.Scatter(
             x=df30['date'], y=btc_close,
-            name='BTC 가격',
-            line=dict(color='#58a6ff', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(88,166,255,0.05)'
+            name='BTC',
+            line=dict(color='#58a6ff', width=2.5)
         ), row=1, col=1)
 
         # ── Row 2: RSI ──
@@ -975,50 +973,33 @@ with tab_fng:
             # ── 이중 Y축 오버레이 차트 ───────────────────────
             fig_fng = make_subplots(specs=[[{"secondary_y": True}]])
 
-            # F&G 배경 색상 영역 (공포=빨강, 탐욕=초록, 중립=노랑)
-            for _, row_fng in df_fng_valid.iterrows():
-                v = row_fng['fng_value']
-                if v >= 60:
-                    bg = 'rgba(74,222,128,0.06)'
-                elif v <= 40:
-                    bg = 'rgba(248,113,113,0.06)'
-                else:
-                    bg = 'rgba(245,158,11,0.04)'
+            # F&G 배경 색상 영역 (Coinglass 스타일 수평 밴드)
+            fig_fng.add_hrect(y0=80, y1=100, fillcolor="rgba(239,68,68,0.15)", line_width=0, secondary_y=True)  # 극단 탐욕 (Red)
+            fig_fng.add_hrect(y0=60, y1=80, fillcolor="rgba(248,113,113,0.1)", line_width=0, secondary_y=True)  # 탐욕 (Light Red)
+            fig_fng.add_hrect(y0=40, y1=60, fillcolor="rgba(234,179,8,0.1)", line_width=0, secondary_y=True)   # 중립 (Yellow)
+            fig_fng.add_hrect(y0=20, y1=40, fillcolor="rgba(74,222,128,0.1)", line_width=0, secondary_y=True)   # 공포 (Light Green)
+            fig_fng.add_hrect(y0=0, y1=20, fillcolor="rgba(34,197,94,0.15)", line_width=0, secondary_y=True)   # 극단 공포 (Green)
 
-            # F&G 막대 그래프 (우측 Y축)
-            fng_bar_colors = [
-                '#4ade80' if v > 60 else '#f87171' if v < 40 else '#f59e0b'
-                for v in df_fng_valid['fng_value']
-            ]
+            # F&G 라인 그래프 (우측 Y축, Coinglass 스타일)
             fig_fng.add_trace(
-                go.Bar(
+                go.Scatter(
                     x=df_fng_valid['date'],
                     y=df_fng_valid['fng_value'],
                     name='F&G 지수',
-                    marker_color=fng_bar_colors,
-                    opacity=0.55,
+                    mode='lines',
+                    line=dict(color='#4ade80', width=2.5),
                     yaxis='y2'
                 ),
                 secondary_y=True
             )
 
-            # 탐욕/공포 기준선
-            fig_fng.add_hline(y=75, line_dash='dot', line_color='rgba(74,222,128,0.5)',
-                               annotation_text='극단 탐욕 75', annotation_position='right',
-                               secondary_y=True)
-            fig_fng.add_hline(y=25, line_dash='dot', line_color='rgba(248,113,113,0.5)',
-                               annotation_text='극단 공포 25', annotation_position='right',
-                               secondary_y=True)
-
-            # BTC 가격 라인 (좌측 Y축)
+            # BTC 가격 라인 (좌측 Y축) - fill 영역 제거로 차트 스케일 최적화
             fig_fng.add_trace(
                 go.Scatter(
                     x=df_fng_valid['date'],
                     y=df_fng_valid['close'],
                     name='BTC 가격',
-                    line=dict(color='#58a6ff', width=2.2),
-                    fill='tozeroy',
-                    fillcolor='rgba(88,166,255,0.04)'
+                    line=dict(color='#ffffff', width=2),
                 ),
                 secondary_y=False
             )
