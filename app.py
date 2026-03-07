@@ -1219,21 +1219,82 @@ with tab_report:
         text_color = "#4ade80" if is_up else "#f87171"
         icon = "🚀" if is_up else "🛡️"
         
+        # Extract conf value for gauge
+        try:
+            conf_val = float(str(data['conf']).replace('%', '').strip())
+        except:
+            conf_val = 50.0
+
+        bar_color_start = "rgba(34,197,94,0.4)" if is_up else "rgba(239,68,68,0.4)"
+        bar_color_end = "rgba(34,197,94,1.0)" if is_up else "rgba(239,68,68,1.0)"
+        glow_color = "#4ade80" if is_up else "#f87171"
+        bar_msg = f"🔥 강력한 {data['direction']} 추세 감지" if conf_val >= 60 else f"⚡ 보통의 {data['direction']} 우위 (신중한 접근 권장)" if conf_val >= 50 else f"🔍 {data['direction']} 신호 약함 (관망 권장)"
+        
         html = f"""
+<style>
+    @keyframes fillConfBar {{
+        from {{ width: 0%; opacity: 0; }}
+        to {{ width: {conf_val}%; opacity: 1; }}
+    }}
+    .conf-bar-fill {{
+        height: 100%;
+        border-radius: 8px;
+        background: linear-gradient(90deg, {bar_color_start} 0%, {bar_color_end} 100%);
+        width: {conf_val}%;
+        box-shadow: 0 0 15px {glow_color};
+        animation: fillConfBar 1.5s ease-out forwards;
+        position: relative;
+        overflow: hidden;
+    }}
+    .conf-bar-fill::after {{
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: shimmerFast 2s infinite;
+    }}
+    @keyframes shimmerFast {{
+        0% {{ transform: translateX(-100%); }}
+        100% {{ transform: translateX(100%); }}
+    }}
+</style>
 <div class="glass-card" style="background: {bg_color}; border-color: {border_color}; margin-bottom: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
         <div>
-            <span style="font-size: 14px; color: #94a3b8;">분석 시점: {data['date']}</span>
-            <h3 style="margin: 0; padding: 0; color: {text_color}; font-size: 2rem;">{icon} {data['direction']} 예측</h3>
+            <span style="font-size: 14px; color: #94a3b8; font-weight: 500;">분석 시점: {data['date']}</span>
+            <h3 style="margin: 0; padding: 0; margin-top: 4px; color: {text_color}; font-size: 2.2rem; text-shadow: 0 0 20px {text_color}40; letter-spacing: -0.5px;">{icon} {data['direction']} 예측</h3>
         </div>
-        <div style="text-align: right; background: rgba(0,0,0,0.3); padding: 0.75rem 1.25rem; border-radius: 8px;">
-            <div style="font-size: 13px; color: #94a3b8; display: inline-block; margin-right: 1.5rem;">기대 정확도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['acc']}</span></div>
-            <div style="font-size: 13px; color: #94a3b8; display: inline-block;">AI 신뢰도 <br><span style="color: #e2e8f0; font-weight: bold; font-size: 1.3rem;">{data['conf']}</span></div>
+        <div style="text-align: right; background: rgba(0,0,0,0.4); padding: 0.85rem 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);">
+            <div style="font-size: 13px; color: #94a3b8; display: inline-block; margin-right: 1.5rem; text-align: center;">기대 정확도 <br><span style="color: #e2e8f0; font-weight: 900; font-size: 1.5rem; letter-spacing: 0.5px;">{data['acc']}</span></div>
+            <div style="font-size: 13px; color: #94a3b8; display: inline-block; text-align: center;">AI 신뢰도 <br><span style="color: {glow_color}; font-weight: 900; font-size: 1.5rem; letter-spacing: 0.5px; text-shadow: 0 0 10px {glow_color}80;">{data['conf']}</span></div>
         </div>
     </div>
-    <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid {text_color};">
+    
+    <div style="margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 0.9rem; color: #cbd5e1; margin-bottom: 0.5rem; font-weight: bold;">
+            <span style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                AI 예측 신뢰도 수준 (Confidence)
+            </span>
+            <span style="color: {glow_color}; font-size: 1.1rem;">{data['conf']}</span>
+        </div>
+        <!-- Animated Gauge Bar -->
+        <div style="width: 100%; background: rgba(0,0,0,0.6); height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); position: relative; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);">
+            <div class="conf-bar-fill"></div>
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem; color: #ffffff; text-shadow: 1px 1px 2px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6); z-index: 10; letter-spacing: 0.5px;">
+                {bar_msg}
+            </div>
+        </div>
+    </div>
+"""
+        if data.get('summary') and data['summary'].strip():
+            html += f"""
+    <div style="background: rgba(0,0,0,0.25); padding: 1.25rem; border-radius: 8px; border-left: 4px solid {text_color}; margin-top: 1.25rem; box-shadow: inset 0 0 10px rgba(0,0,0,0.2);">
         <span style="color: #e2e8f0; font-size: 1.05rem; line-height: 1.6;">{data['summary']}</span>
     </div>
+"""
+
+        html += """
 </div>
 """
         st.markdown(clean_html(html), unsafe_allow_html=True)
