@@ -326,8 +326,25 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- 탭 구성 ---
-tab_main, tab_news, tab_charts, tab_fng, tab_report = st.tabs(["🎯 최신 AI 예측 & 시황", "📰 AI 뉴스 감성 분석", "📊 기술적 차트 및 구조", "📉 공포/탐욕 지수", "📝 일간/주간 마켓 리포트"])
+# --- CSS: 탭 100% 가득 채우기 ---
+st.markdown("""
+<style>
+    /* 탭 메뉴를 가로 전체 너비에 맞게 균등 분할하여 확장 */
+    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+    }
+    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button {
+        flex: 1 1 0px;  /* 각 탭이 동일한 비율로 늘어나도록 설정 */
+        text-align: center; 
+        justify-content: center;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- 탭 구성 (리포트 탭 제일 먼저 배치) ---
+tab_report, tab_main, tab_news, tab_charts, tab_fng = st.tabs(["📝 일간/주간 마켓 리포트", "🎯 최신 AI 예측 & 시황", "📰 AI 뉴스 감성 분석", "📊 기술적 차트 및 구조", "📉 공포/탐욕 지수"])
 
 # ==============================================================================
 # 탭 1: 대시보드 메인
