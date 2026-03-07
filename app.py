@@ -329,16 +329,18 @@ st.markdown("""
 # --- CSS: 탭 100% 가득 채우기 ---
 st.markdown("""
 <style>
-    /* 탭 메뉴를 가로 전체 너비에 맞게 균등 분할하여 확장 */
-    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
+    /* 탭 메뉴를 가로 전체 너비에 맞게 균등 분할하여 확장 (Streamlit 버전 호환성 적용) */
+    div[data-testid="stTabs"] {
+        width: 100% !important;
     }
-    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] > button {
-        flex: 1 1 0px;  /* 각 탭이 동일한 비율로 늘어나도록 설정 */
-        text-align: center; 
-        justify-content: center;
+    div[data-testid="stTabs"] div[data-baseweb="tab-list"] {
+        display: flex !important;
+        width: 100% !important;
+    }
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        flex: 1 1 0px !important;
+        text-align: center !important;
+        justify-content: center !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1247,6 +1249,16 @@ with tab_report:
         glow_color = "#4ade80" if is_up else "#f87171"
         bar_msg = f"🔥 강력한 {data['direction']} 추세 감지" if conf_val >= 60 else f"⚡ 보통의 {data['direction']} 우위 (신중한 접근 권장)" if conf_val >= 50 else f"🔍 {data['direction']} 신호 약함 (관망 권장)"
         
+        # Get predicted_price from latest_pred (which is actually the current price at the time of prediction)
+        price_usd_val = latest_pred.get('predicted_price') if latest_pred else None
+        price_krw_val = latest_pred.get('predicted_price_krw') if latest_pred else None
+        
+        price_badge = ""
+        if price_usd_val and price_krw_val:
+            price_badge = f" &nbsp;|&nbsp; BTC 가격: ${price_usd_val:,.0f} <span style='color: #64748b; font-size: 12px;'>(₩{price_krw_val:,.0f})</span>"
+        elif price_usd_val:
+            price_badge = f" &nbsp;|&nbsp; BTC 가격: ${price_usd_val:,.0f}"
+
         html = f"""
 <style>
     @keyframes fillConfBar {{
@@ -1278,7 +1290,7 @@ with tab_report:
 <div class="glass-card" style="background: {bg_color}; border-color: {border_color}; margin-bottom: 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
         <div>
-            <span style="font-size: 14px; color: #94a3b8; font-weight: 500;">분석 시점: {data['date']}</span>
+            <span style="font-size: 14px; color: #94a3b8; font-weight: 500;">분석 시점: {data['date']}{price_badge}</span>
             <h3 style="margin: 0; padding: 0; margin-top: 4px; color: {text_color}; font-size: 2.2rem; text-shadow: 0 0 20px {text_color}40; letter-spacing: -0.5px;">{icon} {data['direction']} 예측</h3>
         </div>
         <div style="text-align: right; background: rgba(0,0,0,0.4); padding: 0.85rem 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);">

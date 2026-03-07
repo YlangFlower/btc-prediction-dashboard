@@ -511,13 +511,12 @@ log('AI prompts defined')
 # ============================================================
 # Visualization Functions - Dark Dashboard Theme
 # ============================================================
-import matplotlib
-matplotlib.use('Agg')  # GitHub Actions headless 환경을 위해 non-interactive 백엔드 설정
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib import font_manager
 import matplotlib.patches as mpatches
 import matplotlib.patches as patches
+import matplotlib
 
 def setup_english_font():
     """Setup clean English font for charts"""
@@ -674,7 +673,13 @@ def create_prediction_chart(result, predictions, meta_prob, save_path=None):
     now_kst = kst_dt.strftime(f'%Y-%m-%d {h12}:%M {ampm} KST')
     # 예측 시점 BTC 가격 표기
     price_usd = result.get('current_price_usd', 0) if result else 0
-    price_str = f'  |  Price: ${price_usd:,.0f}' if price_usd else ''
+    price_krw = result.get('current_price_krw', 0) if result else 0
+    if price_usd and price_krw:
+        price_str = f'  |  Price: ${price_usd:,.0f} (₩{price_krw:,.0f})'
+    elif price_usd:
+        price_str = f'  |  Price: ${price_usd:,.0f}'
+    else:
+        price_str = ''
     fig.suptitle(f'BTC/USD 24H AI Prediction Dashboard   |   {now_kst}{price_str}',
                  color=TEXT_CLR, fontsize=13, fontweight='bold', y=0.97)
 
@@ -990,15 +995,6 @@ def generate_extended_template_report(shap_result):
         sig = '\uc0c1\uc2b9 \uc2e0\ud638' if p > 0.5 else '\ud558\ub77d \uc2e0\ud638'
         return f'  {sym} {label:<18}: {p*100:.1f}%  {sig}'
 
-    # Python 3.10 fix: backslash not allowed inside f-string {} expressions
-    _row_pts = model_row('patchtst', 'PatchTST(장기)')
-    _row_cnn = model_row('cnnlstm',  'CNN-LSTM(단기)')
-    _row_cat = model_row('catboost', 'CatBoost(모멘)')
-    _insight_line = (
-        '  ✅ 상승 예측: 분할 매수 전략 고려'
-        if dir_short == '상승'
-        else '  🛡️ 하락 예측: 신규 매수 보류, 현금 비중 확대 고려'
-    )
     report = f"""\
 \U0001f4ca \ube44\ud2b8\ucf54\uc778 AI \uc885\ud569 \uc608\uce21 \ub9ac\ud3ec\ud2b8 (v7E Kaggle)
 \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501
@@ -1010,9 +1006,9 @@ def generate_extended_template_report(shap_result):
 \u2502 \u23f3 \uc608\uce21 \ub300\uc0c1: \ud5a5\ud6c4 24\uc2dc\uac04 \ubc29\ud5a5\uc131 (\ucf54\uc778 \ub4f1\ub77d/\ud558\ub77d)         \u2502
 \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
 \U0001f916 AI \ubaa8\ub378 \uc608\uce21 \ubd84\uc11d:
-{_row_pts}
-{_row_cnn}
-{_row_cat}
+{model_row('patchtst', 'PatchTST(\uc7a5\uae30)')}
+{model_row('cnnlstm',  'CNN-LSTM(\ub2e8\uae30)')}
+{model_row('catboost', 'CatBoost(\ubaa8\uba58)')}
   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   \U0001f3c6 \uc559\uc0c4\ube14 \ucd5c\uc885               : {meta_prob*100:.1f}%   \ud95c\uc7ac\ub3c4 {confidence:.1f}%
 
@@ -1039,7 +1035,7 @@ def generate_extended_template_report(shap_result):
   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
 
 \U0001f4a1 \ud22c\uc790 \uc778\uc0ac\uc774\ud2b8:
-  {_insight_line}
+  {'  \u2705 \uc0c1\uc2b9 \uc608\uce21: \ubd84\ud560 \ub9e4\uc218 \uc804\ub7b5 \uace0\ub824' if dir_short == '\uc0c1\uc2b9' else '  \U0001f6e1\ufe0f \ud558\ub77d \uc608\uce21: \uc2e0\uaddc \ub9e4\uc218 \ubcf4\ub958, \ud604\uae08 \ube44\uc911 \ud655\ub300 \uace0\ub824'}
   \u26a0\ufe0f  {100-confidence:.1f}% \ubc18\ub300 \uac00\ub2a5\uc131 \u2192 \uc190\uc808 \ub77c\uc778 \uc124\uc815 \ud544\uc218
   \U0001f4cc \uae30\ub300 \uc815\ud655\ub3c4({predicted_accuracy:.1f}%)\ub294 \uc2e0\ub8b0\ub3c4-\uc815\ud655\ub3c4 \uacf5\uc2dd \uae30\ubc18 \ucd94\uc815\uce58\uc785\ub2c8\ub2e4
 
@@ -1080,7 +1076,6 @@ def generate_prediction_report(result, use_openai=True, save_to_file=True, creat
         meta_prob = shap_result['meta_prob']
 
         _today = (datetime.now(timezone.utc) + timedelta(hours=9)).strftime('%Y-%m-%d')
-        os.makedirs(MODEL_DIR, exist_ok=True)  # 디렉토리 없으면 생성
 
         # Chart: 모델별 예측 + 앙상블 설명
         print('\nChart: Model Predictions + Ensemble Info...')
@@ -1161,7 +1156,7 @@ import requests as _req_upload
 try:
     from google.colab import userdata
     IS_COLAB = True
-except ImportError:
+except ImportErrors:
     IS_COLAB = False
 
 # ============================================================
@@ -1220,12 +1215,15 @@ if 'report' in locals() and SUPABASE_URL and UPLOAD_KEY:
     for chart_key, chart_path in report.get('charts', {}).items():
         upload_to_storage(chart_path, os.path.basename(chart_path), SUPABASE_URL, UPLOAD_KEY)
 
-    # 2. 최신 리포트 파일 업로드
+    # 2. 백테스트 결과 업로드 (MODEL_DIR 변수가 정의되어 있어야 해!)
     if 'MODEL_DIR' in locals():
+        backtest_path = os.path.join(MODEL_DIR, 'backtest_v7e.png')
+        upload_to_storage(backtest_path, 'backtest_v7e.png', SUPABASE_URL, UPLOAD_KEY)
+
+        # 3. 최신 리포트 파일 업로드
         report_files = glob.glob(os.path.join(MODEL_DIR, 'prediction_report_*.txt'))
         if report_files:
             latest = sorted(report_files)[-1]
-            # 날짜 포함 파일명으로 업로드 (대시보드가 자동으로 최신 날짜 파일을 선택함)
             upload_to_storage(latest, os.path.basename(latest), SUPABASE_URL, UPLOAD_KEY)
 
     print('\n🎉 업로드 완료! 웹사이트에서 최신 데이터 확인:')
