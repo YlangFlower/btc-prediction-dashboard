@@ -18,8 +18,8 @@ def clean_html(html_str):
 
 # --- 페이지 기본 설정 ---
 st.set_page_config(
-    page_title="BTC AI 퀀트 대시보드",
-    page_icon="⚡",
+    page_title="DeepSignal Analytics",
+    page_icon="🌊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -29,12 +29,13 @@ st.markdown("""
 <style>
     .stApp { background-color: #0d1117; color: #c9d1d9; }
     .gradient-text {
-        background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%);
+        background: linear-gradient(135deg, #58a6ff 0%, #a78bfa 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 800;
-        font-size: 2.8rem;
-        padding-bottom: 10px;
+        font-size: 3.2rem;
+        letter-spacing: -1px;
+        padding-bottom: 5px;
     }
     div[data-testid="stColumn"] > div {
         height: 100%;
@@ -305,11 +306,25 @@ def format_krw(val):
     return f"{val/100000000:.2f}억원" if val > 100000000 else f"{val:,.0f}원"
 
 # --- 상단 헤더 ---
-st.markdown("<div style='text-align: center; margin-bottom: 1rem;'>"
-            "<div style='font-size: 3.5rem; line-height: 1.2;'>₿</div>"
-            "<div class='gradient-text'>BTC AI 종합 대시보드</div>"
-            "<p style='color: #8b949e; font-size: 1.1rem; margin-top: -10px;'>End-to-End 예측 & 실시간 마켓 애널리틱스</p>"
-            "</div>", unsafe_allow_html=True)
+st.markdown("""
+<div style='text-align: center; margin-bottom: 2rem;'>
+    <div style='display: flex; justify-content: center; align-items: center; gap: 16px; margin-bottom: 5px;'>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <defs>
+                <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#58a6ff" />
+                    <stop offset="100%" stop-color="#a78bfa" />
+                </linearGradient>
+            </defs>
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+        </svg>
+        <div class='gradient-text' style='margin-bottom: 0; padding-bottom: 0;'>DeepSignal</div>
+    </div>
+    <p style='color: #8b949e; font-size: 1.15rem; font-weight: 500; letter-spacing: 0.5px; margin-top: 0;'>
+        차세대 AI 모델 기반 암호화폐 마켓 시그널 & 예측 애널리틱스
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 # --- 탭 구성 ---
 tab_main, tab_news, tab_charts, tab_fng, tab_report = st.tabs(["🎯 최신 AI 예측 & 시황", "📰 AI 뉴스 감성 분석", "📊 기술적 차트 및 구조", "📉 공포/탐욕 지수", "📝 일간/주간 마켓 리포트"])
