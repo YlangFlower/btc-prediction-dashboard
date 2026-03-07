@@ -1509,7 +1509,7 @@ with tab_report:
     daily_text, daily_info = _fetch_report_direct('prediction_report_')
     if daily_text:
         parsed_daily = parse_daily_report(daily_text)
-        render_daily_ui(parsed_daily, daily_text, data.get("latest"))
+        render_daily_ui(parsed_daily, daily_text, data.get("prediction"))
     else:
         st.info("일간 예측 리포트가 없습니다. 파이프라인을 실행하면 생성됩니다.")
 
