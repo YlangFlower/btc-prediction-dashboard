@@ -1159,6 +1159,7 @@ import glob
 import requests as _req_upload
 
 # Colab 환경 체크 (IS_COLAB 변수가 미리 정의되어 있다고 가정해!)
+log('Starting Colab environment check...')
 try:
     from google.colab import userdata
     IS_COLAB = True
