@@ -416,6 +416,47 @@ with tab_main:
 
                 st.progress(conf/100.0)
 
+                # 단기 시나리오 전망 밴드 추가
+                base_price_usd = pred_data.get('predicted_price', 0)
+                if base_price_usd is not None and base_price_usd > 0:
+                    wp = data.get("weekly_prediction", {})
+                    boundary = wp.get("boundary", 0.019)
+                    
+                    target_min_pct = max(0.015, boundary - 0.005)
+                    target_max_pct = min(0.040, boundary + 0.005)
+                    stop_loss_pct = 0.015
+                    
+                    if is_up:
+                        target_min_price = base_price_usd * (1 + target_min_pct)
+                        target_max_price = base_price_usd * (1 + target_max_pct)
+                        stop_loss_price = base_price_usd * (1 - stop_loss_pct)
+                        
+                        stop_html = f"""<div style="flex:1; text-align:left;"><span style="color:#f87171; font-weight:bold;">🛡️ 손절/이탈선</span><br>${stop_loss_price:,.0f} <span style="font-size:0.75em; color:gray;">(-{stop_loss_pct*100:.1f}%)</span></div>"""
+                        target_html = f"""<div style="flex:1; text-align:right;"><span style="color:#4ade80; font-weight:bold;">⛳ 1차 목표(상승)</span><br>${target_min_price:,.0f} ~ ${target_max_price:,.0f} <span style="font-size:0.75em; color:gray;">(+{target_min_pct*100:.1f}%~{target_max_pct*100:.1f}%)</span></div>"""
+                        flex_container = stop_html + f"""<div style="flex:1; text-align:center;"><span style="color:#94a3b8; font-weight:bold;">📍 분석 기준가</span><br>${base_price_usd:,.0f}</div>""" + target_html
+                    else:
+                        target_max_price = base_price_usd * (1 - target_min_pct)
+                        target_min_price = base_price_usd * (1 - target_max_pct)
+                        stop_loss_price = base_price_usd * (1 + stop_loss_pct)
+                        
+                        target_html = f"""<div style="flex:1; text-align:left;"><span style="color:#4ade80; font-weight:bold;">⛳ 1차 목표(하락)</span><br>${target_min_price:,.0f} ~ ${target_max_price:,.0f} <span style="font-size:0.75em; color:gray;">(-{target_max_pct*100:.1f}%~-{target_min_pct*100:.1f}%)</span></div>"""
+                        stop_html = f"""<div style="flex:1; text-align:right;"><span style="color:#f87171; font-weight:bold;">🛡️ 손절/이탈선</span><br>${stop_loss_price:,.0f} <span style="font-size:0.75em; color:gray;">(+{stop_loss_pct*100:.1f}%)</span></div>"""
+                        flex_container = target_html + f"""<div style="flex:1; text-align:center;"><span style="color:#94a3b8; font-weight:bold;">📍 분석 기준가</span><br>${base_price_usd:,.0f}</div>""" + stop_html
+                        
+                    st.markdown(f"""
+                    <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-top: 15px; margin-bottom: 5px; border: 1px solid rgba(255,255,255,0.05);">
+                      <div style="font-size: 0.95rem; font-weight: bold; color: #c9d1d9; margin-bottom: 8px;">
+                        🎯 단기 시나리오 전망 <span style="font-size: 0.8em; font-weight: normal; color: #8b949e;">(예상 도달 밴드)</span>
+                      </div>
+                      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+                        {flex_container}
+                      </div>
+                      <div style="font-size: 0.70rem; color: #64748b; margin-top: 10px; font-style: italic; text-align: right; line-height: 1.3;">
+                        * 본 가격대는 모델의 예측 신뢰도({conf:.1f}%)와 변동성(ATR)을 기반으로 한 통계적 가이드라인으로 절대 보장 수치가 아닙니다.
+                      </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
                 with st.expander("🤖 개별 모델 확률 보기"):
                     indiv = mb.get("individual_predictions", {})
                     if indiv:
