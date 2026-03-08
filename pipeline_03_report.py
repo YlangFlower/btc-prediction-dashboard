@@ -84,6 +84,7 @@ else:
 # 환경 변수 추출 (단일 진실 공급원)
 PROJECT_ROOT = os.getenv('PROJECT_ROOT', os.getcwd())
 MODEL_DIR = os.path.join(PROJECT_ROOT, 'models', 'production', 'v7E_production')
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 # 마스터 권한(RLS 무시)을 위해 서비스 키를 우선 활용, 없으면 일반 키 폴백
