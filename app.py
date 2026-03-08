@@ -16,6 +16,17 @@ def clean_html(html_str):
     # Strip all leading whitespaces from every line to prevent Streamlit from wrapping in code blocks
     return re.sub(r'^\s+', '', html_str, flags=re.MULTILINE)
 
+def format_kst_date(date_str, fmt='%Y-%m-%d'):
+    if not date_str or date_str == 'N/A': return "N/A"
+    try:
+        dt_obj = pd.to_datetime(date_str)
+        if dt_obj.tzinfo is None:
+            dt_obj = dt_obj.replace(tzinfo=timezone.utc)
+        kst_dt = dt_obj.astimezone(timezone(timedelta(hours=9)))
+        return kst_dt.strftime(fmt)
+    except:
+        return str(date_str)[:10]
+
 # --- 페이지 기본 설정 ---
 st.set_page_config(
     page_title="DeepSignal Analytics",
@@ -418,7 +429,7 @@ with tab_main:
                     st.write(f"**스태킹(Stacking):** {stk:.4f}" if isinstance(stk, float) else f"**스태킹:** {stk}")
                     st.write(f"**레짐 동적 앙상블:** {dyn:.4f}" if isinstance(dyn, float) else f"**레짐 동적 앙상블:** {dyn}")
                     st.write(f"**최종 융합:** {fin:.4f}" if isinstance(fin, float) else f"**최종 융합:** {fin}")
-                    st.caption(f"예측 기준일: {pred_data.get('date', 'N/A')[:16].replace('T', ' ')}")
+                    st.caption(f"예측 기준일: {format_kst_date(pred_data.get('date', 'N/A'), '%Y-%m-%d %H:%M')}")
             else:
                 st.warning("예측 데이터를 불러오고 있습니다...")
 
@@ -515,7 +526,7 @@ with tab_main:
             if history:
                 feed_html = "<div style='max-height: 220px; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 8px;' class='custom-scrollbar'>"
                 for row in history[:15]: # Show up to 15 recent predictions
-                    dt = row.get("date", "")[:10]
+                    dt = format_kst_date(row.get("date", ""))
                     dir_val = row.get("direction", "")
                     is_correct = row.get("is_correct")
                     conf = row.get("confidence_score", 0) * 100

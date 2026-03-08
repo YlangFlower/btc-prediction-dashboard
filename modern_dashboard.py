@@ -355,7 +355,7 @@ with tab_main:
                     st.write(f"**스태킹(Stacking):** {stk:.4f}" if isinstance(stk, float) else f"**스태킹:** {stk}")
                     st.write(f"**레짐 동적 앙상블:** {dyn:.4f}" if isinstance(dyn, float) else f"**레짐 동적 앙상블:** {dyn}")
                     st.write(f"**최종 융합:** {fin:.4f}" if isinstance(fin, float) else f"**최종 융합:** {fin}")
-                    st.caption(f"예측 기준일: {pred_data.get('date', 'N/A')[:16].replace('T', ' ')}")
+                    st.caption(f"예측 기준일: {format_kst_date(pred_data.get('date', 'N/A'), '%Y-%m-%d %H:%M')}")
             else:
                 st.warning("예측 데이터를 불러오고 있습니다...")
 
