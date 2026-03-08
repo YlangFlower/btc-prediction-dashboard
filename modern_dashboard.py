@@ -118,10 +118,12 @@ def fetch_all_data():
             out["prediction"] = res_p.data[0]
 
         # 5. 30d Accuracy
-        res_acc = supabase.table('predictions').select('is_correct').gte('date', thirty_days_ago).not_.is_('is_correct', 'null').execute()
+        res_acc = supabase.table('predictions').select('date, direction, is_correct, confidence_score').gte('date', thirty_days_ago).order('date', desc=True).execute()
         if res_acc.data:
-            out["acc_30d"]["total"] = len(res_acc.data)
-            out["acc_30d"]["correct"] = sum(1 for r in res_acc.data if r.get('is_correct'))
+            out["acc_30d"]["history"] = res_acc.data
+            valid_results = [r for r in res_acc.data if r.get('is_correct') is not None]
+            out["acc_30d"]["total"] = len(valid_results)
+            out["acc_30d"]["correct"] = sum(1 for r in valid_results if r.get('is_correct') is True)
 
         # 6. Weekly Prediction (Latest)
         res_w = supabase.table('weekly_predictions').select('*').order('prediction_week_start', desc=True).limit(1).execute()

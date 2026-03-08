@@ -159,11 +159,15 @@ def fetch_all_data():
             out["prediction"] = res_p.data[0]
 
         # 5. 30d Accuracy & History
-        res_acc = supabase.table('predictions').select('date, direction, is_correct, confidence_score').gte('date', thirty_days_ago).not_.is_('is_correct', 'null').order('date', desc=True).execute()
+        # 최근 30일치 데이터를 모두 가져오되 (결과 대기 중인 오늘/내일 예측 포함),
+        # 타율 계산은 실제 결과(is_correct)가 나온 데이터만 대상으로 함.
+        res_acc = supabase.table('predictions').select('date, direction, is_correct, confidence_score').gte('date', thirty_days_ago).order('date', desc=True).execute()
         if res_acc.data:
-            out["acc_30d"]["total"] = len(res_acc.data)
-            out["acc_30d"]["correct"] = sum(1 for r in res_acc.data if r.get('is_correct'))
             out["acc_30d"]["history"] = res_acc.data
+            # is_correct가 null이 아닌 (결과가 나온) 과거 데이터만 타율 계산에 포함
+            valid_results = [r for r in res_acc.data if r.get('is_correct') is not None]
+            out["acc_30d"]["total"] = len(valid_results)
+            out["acc_30d"]["correct"] = sum(1 for r in valid_results if r.get('is_correct') is True)
 
         max_date = (datetime.now() + timedelta(days=6)).strftime("%Y-%m-%d")
         res_w = supabase.table('weekly_predictions').select('*').lte('prediction_week_start', max_date).order('prediction_week_start', desc=True).limit(1).execute()
